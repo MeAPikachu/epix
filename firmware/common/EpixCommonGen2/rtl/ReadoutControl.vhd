@@ -77,7 +77,7 @@ entity ReadoutControl is
       mAxisSlave          : in  AxiStreamSlaveType;
 
       -- MPS
-      mpsOut              : out   sl;
+      mpsOut              : in   sl;
       
       -- EPIX10KA bank-deserialized digital outputs
       doutOut             : in  Slv2Array(15 downto 0);
@@ -455,7 +455,7 @@ begin
                             ssiSetUserSof(MASTER_AXI_STREAM_CONFIG_G, v.mAxisMaster, '1');
                   when 1 => v.mAxisMaster.tData(31 downto 0) := x"0" & "00" & QUAD_C & opCode & acqCount(15 downto 0);
                   when 2 => v.mAxisMaster.tData(31 downto 0) := intSeqCount;
-                  when 3 => v.mAxisMaster.tData(31 downto 0) := ZEROWORD_C;
+                  when 3 => v.mAxisMaster.tData(31 downto 0) := (31 downto 1 => '0') & mpsOut;
                   when 4 => v.mAxisMaster.tData(31 downto 0) := ZEROWORD_C;
                   when 5 => v.mAxisMaster.tData(31 downto 0) := ZEROWORD_C;
                   when 6 => v.mAxisMaster.tData(31 downto 0) := ZEROWORD_C;
@@ -556,7 +556,7 @@ begin
       -- Outputs from block
       readDone    <= r.readDone;
       mAxisMaster <= r.mAxisMaster;
-      mpsOut      <= '0';
+      -- mpsOut      <= '0';
       
    end process comb;
  

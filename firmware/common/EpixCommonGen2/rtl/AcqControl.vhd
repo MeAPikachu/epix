@@ -158,6 +158,8 @@ architecture AcqControl of AcqControl is
 
 begin
 
+
+
    -- ADC Clock outputs
    U_AdcClk0 : OBUFDS port map ( I => adcClk, O => adcClkP(0), OB => adcClkM(0) );
    U_AdcClk1 : OBUFDS port map ( I => adcClk, O => adcClkP(1), OB => adcClkM(1) );
@@ -506,6 +508,7 @@ begin
          end if;
       end if;
    end process;
+
 
    -- Count the number of ADC samples within a single readout clock cycle 
    process(sysClk) begin

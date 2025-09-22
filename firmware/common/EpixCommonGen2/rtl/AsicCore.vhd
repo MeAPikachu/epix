@@ -77,7 +77,7 @@ entity AsicCore is
       -- External Signals
       runTrigger           : in  sl;
       daqTrigger           : in  sl;
-      mpsOut               : out sl;
+      mpsOut               : in sl;
       triggerOut           : out sl;
       -- SW and fiber trigger
       swRun                : in  sl;
@@ -159,7 +159,7 @@ architecture rtl of AsicCore is
    -- ADC signals
    signal adcValid         : slv(19 downto 0);
    signal adcData          : Slv16Array(19 downto 0);
-   
+   signal mps_meta, mps_sync : std_logic := '0';  
 begin
    
    axiRst <= iAxiRst;
@@ -178,17 +178,17 @@ begin
    
    -- Triggers out
    triggerOut  <= iAsicAcq;
-   mpsOut      <= 
-      iInjAcq     when epixConfigExt.dbgReg = "00000" else
-      acqStart    when epixConfigExt.dbgReg = "00001" else
-      dataSend    when epixConfigExt.dbgReg = "00010" else
-      acqBusy     when epixConfigExt.dbgReg = "00011" else
-      readDone    when epixConfigExt.dbgReg = "00100" else
-      iAsicSync   when epixConfigExt.dbgReg = "00101" else
-      iAsicR0     when epixConfigExt.dbgReg = "00110" else
-      iAsicRoClk  when epixConfigExt.dbgReg = "00111" else
-      iInjAcq     when epixConfigExt.dbgReg = "01000" else     -- this is debug pulse to trigger exernal source within ACQ pulse
-      '0';
+--   mpsOut      <= 
+--      iInjAcq     when epixConfigExt.dbgReg = "00000" else
+--      acqStart    when epixConfigExt.dbgReg = "00001" else
+--      dataSend    when epixConfigExt.dbgReg = "00010" else
+--      acqBusy     when epixConfigExt.dbgReg = "00011" else
+--      readDone    when epixConfigExt.dbgReg = "00100" else
+--      iAsicSync   when epixConfigExt.dbgReg = "00101" else
+--      iAsicR0     when epixConfigExt.dbgReg = "00110" else
+--      iAsicRoClk  when epixConfigExt.dbgReg = "00111" else
+--      iInjAcq     when epixConfigExt.dbgReg = "01000" else     -- this is debug pulse to trigger exernal source within ACQ pulse
+--      '0';
    
    -- Triggers in
    iRunTrigger    <= runTrigger;
@@ -339,6 +339,17 @@ begin
       asicRoClk       => iAsicRoClk
    );
    
+   process(sysClk) begin
+      if rising_edge(sysClk) then
+         if (sysClkRst = '1') then
+            mps_meta <= '0';
+            mps_sync <= '0';
+         else
+         mps_meta <= mpsOut;
+         mps_sync <= mps_meta;
+         end if;
+      end if;
+   end process;
    
    ---------------------------------------------------------------
    -- Readout core 
@@ -368,7 +379,7 @@ begin
       envData        => envData,
       mAxisMaster    => dataAxisMaster,
       mAxisSlave     => dataAxisSlave,
-      mpsOut         => open,
+      mpsOut         => mps_sync,
       doutOut        => doutOut,
       doutRd         => doutRd,
       doutValid      => doutValid

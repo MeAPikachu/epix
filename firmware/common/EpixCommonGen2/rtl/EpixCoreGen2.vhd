@@ -72,7 +72,7 @@ entity EpixCoreGen2 is
       -- External Signals
       runTrigger          : in  sl;
       daqTrigger          : in  sl;
-      mpsOut              : out sl;
+      mpsOut              : in sl;
       triggerOut          : out sl;
       -- Board IDs
       serialIdIo          : inout slv(1 downto 0) := "00";
