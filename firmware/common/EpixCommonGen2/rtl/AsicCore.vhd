@@ -341,7 +341,7 @@ begin
    
    process(sysClk) begin
       if rising_edge(sysClk) then
-         if (sysClkRst = '1') then
+         if (sysRst = '1') then
             mps_meta <= '0';
             mps_sync <= '0';
          else

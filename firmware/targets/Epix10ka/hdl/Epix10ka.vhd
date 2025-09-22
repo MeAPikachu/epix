@@ -312,7 +312,7 @@ begin
    vGuardDacClrb <= ivGuardDacClrb when iFpgaOutputEn = '1' else 'Z';
    
    -- TTL interfaces (accounting for inverters on ADC card)
-   mps    <= not(iMps)   when iFpgaOutputEn = '1' else 'Z';
+   -- mps    <= not(iMps)   when iFpgaOutputEn = '1' else 'Z';
    tgOut  <= not(iTgOut) when iFpgaOutputEn = '1' else 'Z';
    iRunTg <= not(runTg);
    iDaqTg <= not(daqTg);
