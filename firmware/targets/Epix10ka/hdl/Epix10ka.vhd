@@ -60,7 +60,7 @@ entity Epix10ka is
       -- External Signals
       runTg               : in  sl;
       daqTg               : in  sl;
-      mps                 : out sl;
+      mps                 : in sl;
       tgOut               : out sl;
       -- Board IDs
       snIoAdcCard         : inout sl;
