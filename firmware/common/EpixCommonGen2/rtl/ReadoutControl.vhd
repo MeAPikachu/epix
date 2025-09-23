@@ -368,7 +368,7 @@ begin
                    channelOrder,doutOrder,fifoEmptyAll,acqBusy,adcMemOflowAny,fifoOflowAny,
                    envData,tpsData,acqStartEdge,dataSendEdge,adcFifoEmpty,
                    sysClkRst,mAxisSlave, adcData, adcDataOvs, channelValid, opCode,
-                   doutOut) 
+                   doutOut,runSync_i,daqSync_i) 
       variable v : RegType;
    begin
       v := r;
