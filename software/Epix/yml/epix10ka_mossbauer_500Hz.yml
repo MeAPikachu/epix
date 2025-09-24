@@ -9,8 +9,8 @@ ePixBoard:
       enable: True
       RunTriggerEnable: True
       RunTriggerDelay: 0x0
-      DaqTriggerEnable: True
-      DaqTriggerDelay: 0x0
+      DaqTriggerEnable: False
+      DaqTriggerDelay: 0x1000
       DacData: 0x0
       DigitalPowerEnable: True
       AnalogPowerEnable: True
@@ -21,7 +21,7 @@ ePixBoard:
       AutoDaqEnable: False
       AcqToAsicR0Delay: 0x0
       AsicR0ToAsicAcq: 0x32a9
-      AsicAcqWidth: 0x32a9
+      AsicAcqWidth: 0x1fa9a
       AsicAcqLToPPmatL: 0xc8
       AsicRoClkT: 0x00000003
       AdcClkHalfT: 0x1
@@ -364,7 +364,6 @@ ePixBoard:
       UserReset: 0x0
     MicronN25Q:
       enable: True
-      Test: 0x0
     MicroblazeLog:
       enable: False
   runControl:
