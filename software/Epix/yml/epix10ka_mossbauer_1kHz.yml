@@ -3,44 +3,31 @@ ePixBoard:
   ForceWrite: False
   dataWriter:
     enable: True
+    dataFile: ''
+    open: False
+    bufferSize: 0
+    maxFileSize: 0
   Epix10ka:
     enable: True
-    AxiVersion:
-      enable: True
-      ScratchPad: 0x000000
-      FpgaReloadHalt: 0x0
-      FpgaReloadAddress: 0x0
-      UserReset: 0x0
     EpixFpgaRegisters:
       enable: True
       RunTriggerEnable: True
       RunTriggerDelay: 0x0
-      RunTriggerDelayUs: 0.00000
-      DaqTriggerEnable: False
+      DaqTriggerEnable: True
       DaqTriggerDelay: 0x0
-      DaqTriggerDelayUs: 0.00000
-      AcqCountReset: False
       DacData: 0x0
       DigitalPowerEnable: True
       AnalogPowerEnable: True
       FpgaOutputEnable: True
       IDelayCtrlRdy: 0x1
-      SeqCountReset: False
       AutoRunEnable: False
-      AutoRunPeriod: 0x325aa0
-      AutoRunPeriodMs: 27.42857
+      AutoRunPeriod: 0x107d99
       AutoDaqEnable: False
-      OutPipelineDelay: 0x0
-      AcqToAsicR0Delay: 0x960
-      AcqToAsicR0DelayUs: 19.94805
-      AsicR0ToAsicAcq: 0xfa0
-      AsicR0ToAsicAcqUs: 33.24675
-      AsicAcqWidth: 0xfa0
-      AsicAcqWidthUs: 33.24675
+      AcqToAsicR0Delay: 0x0
+      AsicR0ToAsicAcq: 0x32a9
+      AsicAcqWidth: 0x32a9
       AsicAcqLToPPmatL: 0xc8
-      AsicAcqLToPPmatLUs: 1.66234
-      AsicRoClkT: 0x6
-      AdcReadsPerPixel: 0x1
+      AsicRoClkT: 0x00000003
       AdcClkHalfT: 0x1
       TotalPixelsToRead: 0x8580
       AsicGR: False
@@ -57,37 +44,38 @@ ePixBoard:
       AsicPinROClkControl: False
       AdcPatternEnable: False
       AsicR0Width: 0x1e
-      AsicR0WidthUs: 0.24935
       AsicPPmatToReadout: 0x0
-      AsicPPmatToReadoutUs: 0.00000
       PgpTrigEn: False
-      TpsTiming: 0x0
-      TpsEdge: False
       RequestStartup: False
-      AdcPipelineDelayA0: 0x22
-      AdcPipelineDelayA1: 0x22
-      AdcPipelineDelayA2: 0x22
-      AdcPipelineDelayA3: 0x22
+      AdcPipelineDelayA0: 0x1d
+      AdcPipelineDelayA1: 0x1d
+      AdcPipelineDelayA2: 0x1d
+      AdcPipelineDelayA3: 0x1d
     EpixFpgaExtRegisters:
       enable: True
       GhostCorrEn: False
       DebugOut: 0x3
-      BankPipelineDly00: 0x22
-      BankPipelineDly01: 0x22
-      BankPipelineDly02: 0x22
-      BankPipelineDly03: 0x22
-      BankPipelineDly04: 0x22
-      BankPipelineDly05: 0x22
-      BankPipelineDly06: 0x22
-      BankPipelineDly07: 0x22
-      BankPipelineDly08: 0x22
-      BankPipelineDly09: 0x22
-      BankPipelineDly10: 0x22
-      BankPipelineDly11: 0x22
-      BankPipelineDly12: 0x22
-      BankPipelineDly13: 0x22
-      BankPipelineDly14: 0x22
-      BankPipelineDly15: 0x22
+      BankPipelineDly00: 0x1d
+      BankPipelineDly01: 0x1d
+      BankPipelineDly02: 0x1d
+      BankPipelineDly03: 0x1d
+      BankPipelineDly04: 0x1d
+      BankPipelineDly05: 0x1d
+      BankPipelineDly06: 0x1d
+      BankPipelineDly07: 0x1d
+      BankPipelineDly08: 0x1d
+      BankPipelineDly09: 0x1d
+      BankPipelineDly10: 0x1d
+      BankPipelineDly11: 0x1d
+      BankPipelineDly12: 0x1d
+      BankPipelineDly13: 0x1d
+      BankPipelineDly14: 0x1d
+      BankPipelineDly15: 0x1d
+    Epix10kADouts:
+      enable: True
+      RdoutClkDelay: 0xa
+      SystemClkDelay: 0x0
+      RdoutOrder: 0xff0
     Oscilloscope:
       enable: True
       ArmReg: False
@@ -104,12 +92,7 @@ ePixBoard:
       InputChannelA: ASIC1_B0
       InputChannelB: ASIC0_B0
       TriggerDelay: 2970
-    Epix10kADouts:
-      enable: True
-      RdoutClkDelay: 0xa
-      SystemClkDelay: 0x0
-      RdoutOrder: 0xff0
-    Epix10kaAsic0:
+    Epix10kaAsic[0]:
       enable: True
       CompTH_DAC: 0x22
       CompEn0: False
@@ -176,7 +159,7 @@ ePixBoard:
       S2d2Dac: 0x12
       S2d3TcDac: 0x1
       S2d3Dac: 0x12
-    Epix10kaAsic1:
+    Epix10kaAsic[1]:
       enable: True
       CompTH_DAC: 0x22
       CompEn0: False
@@ -243,7 +226,7 @@ ePixBoard:
       S2d2Dac: 0x12
       S2d3TcDac: 0x1
       S2d3Dac: 0x12
-    Epix10kaAsic2:
+    Epix10kaAsic[2]:
       enable: True
       CompTH_DAC: 0x22
       CompEn0: False
@@ -310,7 +293,7 @@ ePixBoard:
       S2d2Dac: 0x12
       S2d3TcDac: 0x1
       S2d3Dac: 0x12
-    Epix10kaAsic3:
+    Epix10kaAsic[3]:
       enable: True
       CompTH_DAC: 0x22
       CompEn0: False
@@ -377,105 +360,12 @@ ePixBoard:
       S2d2Dac: 0x12
       S2d3TcDac: 0x1
       S2d3Dac: 0x12
-    Pgp2bAxi:
+    AxiVersion:
       enable: True
-      Loopback: 'No'
-      LocData: 0x0
-      LocDataEn: False
-      AutoStatus: False
-    SlowAdcRegisters:
-      enable: False
-      StreamEn: False
-      StreamPeriod: 0
-    Ad9249Rdout[0].Adc[0]:
-      enable: False
-      ChannelDelay[0]: 0x0
-      ChannelDelay[1]: 0x0
-      ChannelDelay[2]: 0x0
-      ChannelDelay[3]: 0x0
-      ChannelDelay[4]: 0x0
-      ChannelDelay[5]: 0x0
-      ChannelDelay[6]: 0x0
-      ChannelDelay[7]: 0x0
-      FrameDelay: 0x0
-      Invert: False
-    Ad9249Rdout[0].Adc[1]:
-      enable: False
-      ChannelDelay[0]: 0x0
-      ChannelDelay[1]: 0x0
-      ChannelDelay[2]: 0x0
-      ChannelDelay[3]: 0x0
-      ChannelDelay[4]: 0x0
-      ChannelDelay[5]: 0x0
-      ChannelDelay[6]: 0x0
-      ChannelDelay[7]: 0x0
-      FrameDelay: 0x0
-      Invert: False
-    Ad9249Rdout[1].Adc[0]:
-      enable: False
-      ChannelDelay[0]: 0x0
-      ChannelDelay[1]: 0x0
-      ChannelDelay[2]: 0x0
-      ChannelDelay[3]: 0x0
-      FrameDelay: 0x0
-      Invert: False
-    Ad9249Config[0].Adc[0]:
-      enable: False
-      ExternalPdwnMode: Full Power Down
-      InternalPdwnMode: Chip Run
-      DutyCycleStabilizer: 'Off'
-      ClockDivide: Divide by 1
-      ChopMode: 'Off'
-      DevIndexMask[7:0]: 0b0
-      DevIndexMask[DCO:FCO]: 0b0
-      UserTestModeCfg: single
-      OutputTestMode: 'Off'
-      OffsetAdjust: 0x0
-      OutputInvert: False
-      OutputFormat: Offset Binary
-      UserPatt1Lsb: 0x0
-      UserPatt1Msb: 0x0
-      UserPatt2Lsb: 0x0
-      UserPatt2Msb: 0x0
-      LvdsLsbFirst: False
-    Ad9249Config[0].Adc[1]:
-      enable: False
-      ExternalPdwnMode: Full Power Down
-      InternalPdwnMode: Chip Run
-      DutyCycleStabilizer: 'Off'
-      ClockDivide: Divide by 1
-      ChopMode: 'Off'
-      DevIndexMask[7:0]: 0b0
-      DevIndexMask[DCO:FCO]: 0b0
-      UserTestModeCfg: single
-      OutputTestMode: 'Off'
-      OffsetAdjust: 0x0
-      OutputInvert: False
-      OutputFormat: Offset Binary
-      UserPatt1Lsb: 0x0
-      UserPatt1Msb: 0x0
-      UserPatt2Lsb: 0x0
-      UserPatt2Msb: 0x0
-      LvdsLsbFirst: False
-    Ad9249Config[1].Adc[0]:
-      enable: False
-      ExternalPdwnMode: Full Power Down
-      InternalPdwnMode: Chip Run
-      DutyCycleStabilizer: 'Off'
-      ClockDivide: Divide by 1
-      ChopMode: 'Off'
-      DevIndexMask[7:0]: 0b0
-      DevIndexMask[DCO:FCO]: 0b0
-      UserTestModeCfg: single
-      OutputTestMode: 'Off'
-      OffsetAdjust: 0x0
-      OutputInvert: False
-      OutputFormat: Offset Binary
-      UserPatt1Lsb: 0x0
-      UserPatt1Msb: 0x0
-      UserPatt2Lsb: 0x0
-      UserPatt2Msb: 0x0
-      LvdsLsbFirst: False
+      ScratchPad: 0x000000
+      FpgaReloadHalt: 0x0
+      FpgaReloadAddress: 0x0
+      UserReset: 0x0
     MicronN25Q:
       enable: True
       Test: 0x0

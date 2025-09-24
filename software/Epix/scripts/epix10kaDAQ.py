@@ -92,8 +92,8 @@ parser.add_argument(
     "--pgp", 
     type     = str,
     required = False,
-    default  = '/dev/pgpcard_0',
-    help     = "PGP devide (default /dev/pgpcard_0)",
+    default  = '/dev/datadev_0',
+    help     = "PGP devide (default /dev/datadev_0)",
 )  
 
 parser.add_argument(
