@@ -3,10 +3,6 @@ ePixBoard:
   ForceWrite: False
   dataWriter:
     enable: True
-    dataFile: ''
-    open: False
-    bufferSize: 0
-    maxFileSize: 0
   Epix10ka:
     enable: True
     EpixFpgaRegisters:
