@@ -44,36 +44,39 @@ import argparse
 import numpy as np
 import rogue.interfaces.stream
 
+class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
+	HEAD_LEN  = 40
+	DATA_LEN  = 270_336                     # 176 * (192*4) * 2 bytes
+	U16_COUNT = DATA_LEN // 2               # 135,168 pixels
 
-class AddOne16LEAfter40(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
-    HEAD_LEN = 40
-    DATA_LEN = 270_336                
-    U16_COUNT = DATA_LEN // 2   
-    
-    def __init__(self):
-        rogue.interfaces.stream.Slave.__init__(self)
-        rogue.interfaces.stream.Master.__init__(self)
+	def __init__(self, dark_path="/data/epix/software/Mossbauer/dark_2D.npy",
+				 clamp_min=0, clamp_max=0xFFFF):
+		super().__init__()
+		dark = np.load(dark_path, mmap_mode='r')  
+		if dark.size != self.U16_COUNT:
+			raise ValueError(f"dark_2D size mismatch: got {dark.size} pixels, need {self.U16_COUNT}")
+		self.dark_i32 = np.asarray(dark, order='C').reshape(-1).astype(np.int32, copy=False)
+		self.clamp_min = int(clamp_min)
+		self.clamp_max = int(clamp_max)
 
-    def _acceptFrame(self, frame):
-        size = frame.getPayload()
-        buf = bytearray(size)
-        frame.read(buf, 0)
+	def _acceptFrame(self, frame):
+		size = frame.getPayload()
+		buf = bytearray(size)
+		frame.read(buf, 0)
 
-        if size >= self.HEAD_LEN + self.DATA_LEN:
-            arr = np.frombuffer(buf, dtype='<u2',
-                                count=self.U16_COUNT,
-                                offset=self.HEAD_LEN)
-            arr += 1
-        else:
-            span = max(0, size - self.HEAD_LEN)
-            cnt  = span // 2
-            if cnt:
-                np.frombuffer(buf, dtype='<u2', count=cnt, offset=self.HEAD_LEN)[:] += 1
+		
+		valid_bytes = min(self.DATA_LEN, max(0, size - self.HEAD_LEN))
+		cnt = valid_bytes // 2
+		if cnt > 0:
+			arr_u2 = np.frombuffer(buf, dtype=np.dtype('<u2'),
+								   count=cnt, offset=self.HEAD_LEN)
+			diff = arr_u2.astype(np.int32, copy=False) - self.dark_i32[:cnt]
+			np.clip(diff, self.clamp_min, self.clamp_max, out=diff)
+			arr_u2[:] = diff.astype(np.uint16, copy=False)
 
-
-        out = self._reqFrame(size, True)
-        out.write(buf, 0)
-        self._sendFrame(out)
+		out = self._reqFrame(size, True)
+		out.write(buf, 0)
+		self._sendFrame(out)
 
 
 try:
@@ -189,7 +192,10 @@ else:
 # File writer
 dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
 #pyrogue.streamConnect(pgpVc0, dataWriter.getChannel(0x1))
-adder = AddOne16LEAfter40()
+l0p= L0Process("/data/epix/software/Mossbauer/dark_2D.npy")
+pyrogue.streamConnect(pgpVc0, l0p)
+pyrogue.streamConnect(l0p, dataWriter.getChannel(0x1))
+
 pyrogue.streamConnect(pgpVc0, adder)
 pyrogue.streamConnect(adder, dataWriter.getChannel(0x1))
 # Add pseudoscope to file writer
@@ -227,6 +233,7 @@ pyrogue.streamConnectBiDir(pgpVc1,srp)
 # Create epics node
 #epics = pyrogue.epics.EpicsCaServer('rogueTest',ePixBoard)
 #epics.start()
+
 
 
 #############################################
