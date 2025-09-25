@@ -44,23 +44,27 @@ import numpy as np
 import rogue.interfaces.stream  # 不用别名
 
 class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
-	"""VC0: raw-dark -> 列CM(阈值=4*n1+mean(raw-dark)) -> 裁剪 -> 回写<uint16>"""
+	"""
+	VC0处理：raw - dark (int32)  ->  列CM(在 raw-dark 空间，阈值 = 4*n1 + mean(raw-dark))  ->  裁剪  ->  回写<uint16>
+	不做帧级CM。
+	"""
 
 	HEAD_LEN  = 40
 	NY        = 176
 	NX        = 768
-	U16_COUNT = NY * NX
-	DATA_LEN  = U16_COUNT * 2  # bytes
+	U16_COUNT = NY * NX                  # 135,168
+	DATA_LEN  = U16_COUNT * 2            # 270,336 bytes
 
 	def __init__(self,
 				 dark_path="/data/epix/software/Mossbauer/dark_2D.npy",
-				 n1=8,
+				 n1=8,                          # 列CM阈值常数部分：4*n1
 				 enable_common_mode=True,
 				 clamp_min=0, clamp_max=0xFFFF):
+		# Rogue基类初始化
 		rogue.interfaces.stream.Slave.__init__(self)
 		rogue.interfaces.stream.Master.__init__(self)
 
-		# 读 dark（允许(176,768)或可reshape的一维）
+		# 读取 dark（允许一维或二维，最终 reshape 为 (176,768)）
 		dark = np.load(dark_path, mmap_mode='r')
 		dark = np.asarray(dark, order='C')
 		if dark.size != self.U16_COUNT:
@@ -79,50 +83,61 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 		self.clamp_max = int(clamp_max)
 
 	def _col_common_mode(self, thr: int) -> None:
-		"""在 raw-dark 空间：仅 w<thr 的像素参与每列中位数，并从 work_i32 中扣除。"""
+		"""
+		在 raw-dark 空间做列CM：仅 w < thr 的像素参与各列中位数；结果从 work_i32 中按列扣除。
+		"""
 		if not self.enable_common_mode:
 			return
 		w2d = self.work_i32
-		np.less(w2d, thr, out=self.mask_2d)                         # True参与
+
+		# 选点：raw-dark < thr
+		np.less(w2d, thr, out=self.mask_2d)                   # True 表示参与该列中位数
 		ma = np.ma.array(w2d, mask=~self.mask_2d)
 		m  = np.ma.median(ma, axis=0)
 		if isinstance(m, np.ma.MaskedArray):
 			m = m.filled(0)
+
+		# 按列相减（原地）
 		self.col_med[:] = np.asarray(m, dtype=np.int32)
-		w2d -= self.col_med                                          # 原地按列扣除
+		w2d -= self.col_med
 
 	def _acceptFrame(self, frame):
 		size = frame.getPayload()
-		# 读出整帧
-		buf = bytearray(size)
+		buf  = bytearray(size)
 		frame.read(buf, 0)
 
-		# 仅处理 [40, 40+DATA_LEN) 区域
-		valid_bytes = min(self.DATA_LEN, max(0, size - self.HEAD_LEN))
-		cnt = valid_bytes // 2
-		if cnt >= self.U16_COUNT:   # 只在完整帧上做处理（更安全）
-			# 原始有效区视图（<u2, 小端）
-			arr_u2 = np.frombuffer(buf, dtype=np.dtype('<u2'),
-								   count=self.U16_COUNT, offset=self.HEAD_LEN).reshape(self.NY, self.NX)
+		# 仅处理 [HEAD_LEN, HEAD_LEN+DATA_LEN)；其余字节原样透传
+		data_bytes = max(0, size - self.HEAD_LEN)
+		valid_bytes = min(self.DATA_LEN, data_bytes)
+		if valid_bytes < self.DATA_LEN:
+			# 非完整帧：直接透传（安全起见）
+			out = self._reqFrame(size, True)
+			out.write(buf, 0)
+			self._sendFrame(out)
+			return
 
-			# raw -> i32：完全覆盖工作区
-			np.subtract(arr_u2, self.dark_i32, out=self.work_i32, casting='unsafe')
+		# 原始有效区（<u2, 小端）视图 -> (176,768)
+		arr_u2 = np.frombuffer(
+			buf, dtype=np.dtype('<u2'),
+			count=self.U16_COUNT, offset=self.HEAD_LEN
+		).reshape(self.NY, self.NX)
 
-			# （可选）帧级CM：若需要，与 epix.py 对齐，可放开下一行
-			# self._frame_common_mode()
+		# raw -> i32：raw - dark（完全覆盖工作区）
+		np.subtract(arr_u2, self.dark_i32, out=self.work_i32, casting='unsafe')
 
-			# 列CM阈值：4*n1 + mean(raw-dark)
-			mean_i32 = int(np.add.reduce(self.work_i32, dtype=np.int64) // self.U16_COUNT)
-			thr = 4 * self.n1 + mean_i32
-			if   thr < 0:       thr = 0
-			elif thr > 0xFFFF:  thr = 0xFFFF
+		# 动态阈值：4*n1 + mean(raw-dark)
+		sum_i64  = self.work_i32.sum(dtype=np.int64)          # 避免溢出/标量错误
+		mean_i32 = int(sum_i64 // self.U16_COUNT)
+		thr      = 4 * self.n1 + mean_i32
+		if   thr < 0:       thr = 0
+		elif thr > 0xFFFF:  thr = 0xFFFF                      # 保险限幅
 
-			# 列CM（基于 raw-dark）
-			self._col_common_mode(thr)
+		# 列CM（基于 raw-dark）
+		self._col_common_mode(thr)
 
-			# 裁剪并写回 <u2（原地覆盖同一缓冲）
-			np.clip(self.work_i32, self.clamp_min, self.clamp_max, out=self.work_i32)
-			arr_u2[:, :] = self.work_i32.astype(np.uint16, copy=False)
+		# 裁剪并写回 <u2
+		np.clip(self.work_i32, self.clamp_min, self.clamp_max, out=self.work_i32)
+		arr_u2[:, :] = self.work_i32.astype(np.uint16, copy=False)
 
 		# 送出帧
 		out = self._reqFrame(size, True)
