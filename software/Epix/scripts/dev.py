@@ -254,17 +254,18 @@ if (PRINT_VERBOSE): pyrogue.streamTap(pgpVc0, dbgData)
 
 
 # Create GUI
+
+dataWriter._writer.setBufferSize(10_000_000)      # 10 MB
+dataWriter._writer.setMaxSize(1_000_000_000)      # 1 GB 分卷
+rawWriter._writer.setBufferSize(5_000_000)
+rawWriter._writer.setMaxSize(500_000_000)
+
+
 appTop = QApplication(sys.argv)
 guiTop = pyrogue.gui.GuiTop(group = 'ePix10kaGui')
 ePixBoard = EpixBoard(guiTop, cmd, dataWriter, srp, args.asic_rev)
 # Add Raw Writer;
 ePixBoard.add(rawWriter)
-
-
-dataWriter.BufferSize.set(10_000_000)         
-dataWriter.MaxFileSize.set(5 * 1024**3) 
-rawWriter.BufferSize.set(10_000_000)         
-rawWriter.MaxFileSize.set(1 * 1024**3) 
 
 
 ePixBoard.start()
