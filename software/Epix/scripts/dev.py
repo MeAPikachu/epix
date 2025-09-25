@@ -4,7 +4,7 @@
 #-----------------------------------------------------------------------------
 # File       : epix10kaDAQ.py evolved from evalBoard.py
 # Author     : Ryan Herbst, rherbst@slac.stanford.edu
-# Modified by: Dionisio Doering
+# Modified by: Chengjie Jia
 # Created    : 2016-09-29
 # Last update: 2017-02-01
 #-----------------------------------------------------------------------------
@@ -42,6 +42,7 @@ import argparse
 
 
 from L0Process import L0Process
+from StreamSampler import StreamSampler
 
 try:
     from PyQt5.QtWidgets import *
@@ -155,11 +156,17 @@ else:
 # Add data stream to file as channel 1
 # File writer
 dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
+
 #pyrogue.streamConnect(pgpVc0, dataWriter.getChannel(0x1))
-l0 = L0Process(dark_path="/data/epix/software/Mossbauer/dark_2D.npy",
+l0 = L0Process(dark_path="/data/epix/software/Mossbauer/dark_2D.npy",filter_path="/data/epix/software/Mossbauer/filter.npy",
                n1=8, enable_common_mode=True)
 pyrogue.streamConnect(pgpVc0, l0)
 pyrogue.streamConnect(l0, dataWriter.getChannel(0x1))
+
+rawWriter = pyrogue.utilities.fileio.StreamWriter(name='rawWriter')
+sampler = StreamSampler(min_interval=1.0)
+pyrogue.streamTap(pgpVc0,sampler)
+pyrogue.streamConnect(sampler,rawWriter.getChannel(0x1))
 
 # Add pseudoscope to file writer
 pyrogue.streamConnect(pgpVc2, dataWriter.getChannel(0x2))
@@ -171,32 +178,6 @@ pyrogue.streamConnect(cmd, pgpVc0)
 # Create and Connect SRP to VC1 to send commands
 srp = rogue.protocols.srp.SrpV0()
 pyrogue.streamConnectBiDir(pgpVc1,srp)
-
-# Add configuration stream to file as channel 0
-# Removed to reduce amount of data going to file
-#pyrogue.streamConnect(ePixBoard,dataWriter.getChannel(0x0))
-
-## Add microblaze console stream to file as channel 2
-#pyrogue.streamConnect(pgpVc3,dataWriter.getChannel(0x2))
-
-# PRBS Receiver as secdonary receiver for VC1
-#prbsRx = pyrogue.utilities.prbs.PrbsRx('prbsRx')
-#pyrogue.streamTap(pgpVc1,prbsRx)
-#ePixBoard.add(prbsRx)
-
-# Microblaze console monitor add secondary tap
-#mbcon = MbDebug()
-#pyrogue.streamTap(pgpVc3,mbcon)
-
-#br = testBridge.Bridge()
-#br._setSlave(srp)
-
-#ePixBoard.add(surf.SsiPrbsTx.create(memBase=srp1,offset=0x00000000*4))
-
-# Create epics node
-#epics = pyrogue.epics.EpicsCaServer('rogueTest',ePixBoard)
-#epics.start()
-
 
 
 #############################################
@@ -291,6 +272,11 @@ if (PRINT_VERBOSE): pyrogue.streamTap(pgpVc0, dbgData)
 appTop = QApplication(sys.argv)
 guiTop = pyrogue.gui.GuiTop(group = 'ePix10kaGui')
 ePixBoard = EpixBoard(guiTop, cmd, dataWriter, srp, args.asic_rev)
+# Add Raw Writer;
+
+ePixBoard.add(rawWriter)
+
+
 ePixBoard.start()
 guiTop.addTree(ePixBoard)
 guiTop.resize(1000,800)
