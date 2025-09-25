@@ -72,18 +72,19 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 
 	def _acceptFrame(self, frame):
 		size = frame.getPayload()
-		buf  = bytearray(size)
-		frame.read(buf, 0)
 
 		# Only process the valid bytes; 
 		data_bytes = max(0, size - self.HEAD_LEN)
 		valid_bytes = min(self.DATA_LEN, data_bytes)
 		if valid_bytes < self.DATA_LEN:
-			# Wrong Frames, just send it. 
-			out = self._reqFrame(size, True)
-			out.write(buf, 0)
-			self._sendFrame(out)
+			# Wrong Frames, just discard it. 
+			#out = self._reqFrame(size, True)
+			#out.write(buf, 0)
+			#self._sendFrame(out)
 			return
+
+		buf  = bytearray(size)
+		frame.read(buf, 0)
 
 		# Raw valid data;
 		arr_u2 = np.frombuffer(
