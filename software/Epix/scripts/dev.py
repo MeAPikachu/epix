@@ -41,38 +41,45 @@ import ePixFpga as fpga
 import argparse
 
 
+# L0 Processing: subtract per-pixel dark (no wrap-around, clamp to [0, 65535])
 import numpy as np
 import rogue.interfaces.stream
 
+
 class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 	HEAD_LEN  = 40
-	DATA_LEN  = 270_336                     # 176 * (192*4) * 2 bytes
-	U16_COUNT = DATA_LEN // 2               # 135,168 pixels
+	DATA_LEN  = 270_336                 # 176 * (192*4) * 2 bytes
+	U16_COUNT = DATA_LEN // 2           # 135,168 pixels
 
 	def __init__(self, dark_path="/data/epix/software/Mossbauer/dark_2D.npy",
 				 clamp_min=0, clamp_max=0xFFFF):
-		super().__init__()
-		dark = np.load(dark_path, mmap_mode='r')  
-		if dark.size != self.U16_COUNT:
-			raise ValueError(f"dark_2D size mismatch: got {dark.size} pixels, need {self.U16_COUNT}")
-		self.dark_i32 = np.asarray(dark, order='C').reshape(-1).astype(np.int32, copy=False)
+		rogue.interfaces.stream.Slave.__init__(self)
+		rogue.interfaces.stream.Master.__init__(self)
+
+		dark = np.load(dark_path, mmap_mode='r')
+		flat = np.asarray(dark, order='C').reshape(-1)
+		if flat.size != self.U16_COUNT:
+			raise ValueError(f"dark_2D size mismatch: got {flat.size} pixels, need {self.U16_COUNT}")
+
+		self.dark_i32 = flat.astype(np.int32, copy=False)      
+		self.work_i32 = np.empty(self.U16_COUNT, dtype=np.int32)  
 		self.clamp_min = int(clamp_min)
 		self.clamp_max = int(clamp_max)
 
 	def _acceptFrame(self, frame):
 		size = frame.getPayload()
-		buf = bytearray(size)
+		buf  = bytearray(size)
 		frame.read(buf, 0)
 
-		
 		valid_bytes = min(self.DATA_LEN, max(0, size - self.HEAD_LEN))
 		cnt = valid_bytes // 2
 		if cnt > 0:
-			arr_u2 = np.frombuffer(buf, dtype=np.dtype('<u2'),
-								   count=cnt, offset=self.HEAD_LEN)
-			diff = arr_u2.astype(np.int32, copy=False) - self.dark_i32[:cnt]
-			np.clip(diff, self.clamp_min, self.clamp_max, out=diff)
-			arr_u2[:] = diff.astype(np.uint16, copy=False)
+			arr_u2 = np.frombuffer(buf, dtype=np.dtype('<u2'), count=cnt, offset=self.HEAD_LEN)
+			w = self.work_i32[:cnt]
+			w[:] = arr_u2
+			np.subtract(w, self.dark_i32[:cnt], out=w, casting='unsafe')
+			np.clip(w, self.clamp_min, self.clamp_max, out=w)
+			arr_u2[:] = w  
 
 		out = self._reqFrame(size, True)
 		out.write(buf, 0)
@@ -180,8 +187,8 @@ if args.simulation:
    pgpVc2 = rogue.interfaces.stream.TcpClient('localhost',8004)
    pgpVc3 = rogue.interfaces.stream.TcpClient('localhost',8006)
 else:
-   pgpVc1 = rogue.hardware.pgp.PgpCard(args.pgp,0,0) # Data & cmds
-   pgpVc0 = rogue.hardware.pgp.PgpCard(args.pgp,0,1) # Registers for ePix board
+   pgpVc1 = rogue.hardware.pgp.PgpCard(args.pgp,0,0) # Registers 
+   pgpVc0 = rogue.hardware.pgp.PgpCard(args.pgp,0,1) # Data
    pgpVc2 = rogue.hardware.pgp.PgpCard(args.pgp,0,2) # PseudoScope
    pgpVc3 = rogue.hardware.pgp.PgpCard(args.pgp,0,3) # Monitoring (Slow ADC)
    print("")
