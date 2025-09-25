@@ -257,12 +257,12 @@ if (PRINT_VERBOSE): pyrogue.streamTap(pgpVc0, dbgData)
 
 dataWriter._writer.setBufferSize(10_000_000)      # 10 MB
 dataWriter._writer.setMaxSize(100_000_000)      # 1 GB 分卷
-dataWriter.dataFile.set('/data/test/run.dat')
+dataWriter.DataFile.set('/data/test/run.dat')
 dataWriter.open.set(True) 
 
 rawWriter._writer.setBufferSize(5_000_000)
 rawWriter._writer.setMaxSize(50_000_000)
-rawWriter.dataFile.set('/data/test/raw.dat')
+rawWriter.DataFile.set('/data/test/raw.dat')
 rawWriter.open.set(True) 
 
 appTop = QApplication(sys.argv)
