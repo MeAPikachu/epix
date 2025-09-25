@@ -156,9 +156,6 @@ else:
 # Add data stream to file as channel 1
 # File writer
 dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
-#dataWriter.BufferSize.set(10_000_000)         
-dataWriter.MaxFileSize.set(5 * 1024**3) 
-
 
 #pyrogue.streamConnect(pgpVc0, dataWriter.getChannel(0x1))
 l0 = L0Process(dark_path="/data/epix/software/Mossbauer/dark_2D.npy",filter_path="/data/epix/software/Mossbauer/filter.npy",
@@ -167,8 +164,7 @@ pyrogue.streamConnect(pgpVc0, l0)
 pyrogue.streamConnect(l0, dataWriter.getChannel(0x1))
 
 rawWriter = pyrogue.utilities.fileio.StreamWriter(name='rawWriter')
-#rawWriter.BufferSize.set(10_000_000)         
-rawWriter.MaxFileSize.set(1 * 1024**3) 
+
 sampler = StreamSampler(min_interval=1.0)
 pyrogue.streamTap(pgpVc0,sampler)
 pyrogue.streamConnect(sampler,rawWriter.getChannel(0x1))
@@ -263,6 +259,14 @@ guiTop = pyrogue.gui.GuiTop(group = 'ePix10kaGui')
 ePixBoard = EpixBoard(guiTop, cmd, dataWriter, srp, args.asic_rev)
 # Add Raw Writer;
 ePixBoard.add(rawWriter)
+
+
+dataWriter.BufferSize.set(10_000_000)         
+dataWriter.MaxFileSize.set(5 * 1024**3) 
+rawWriter.BufferSize.set(10_000_000)         
+rawWriter.MaxFileSize.set(1 * 1024**3) 
+
+
 ePixBoard.start()
 guiTop.addTree(ePixBoard)
 guiTop.resize(1000,800)
