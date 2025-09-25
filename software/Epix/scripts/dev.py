@@ -90,9 +90,11 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 		if isinstance(m, np.ma.MaskedArray):
 			m = m.filled(0)
 		self.col_med[:] = np.asarray(m, dtype=np.int32)
-		self.col_med[:] = med.astype(np.int32, copy=False)
+		self.col_med[:] = m.astype(np.int32, copy=False)
 		self.work_2d -= self.col_med
 
+    
+    
 	def _acceptFrame(self, frame):
 		size = frame.getPayload()
 		buf  = bytearray(size)
