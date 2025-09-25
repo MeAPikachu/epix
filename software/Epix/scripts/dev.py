@@ -40,13 +40,11 @@ import ePixViewer as vi
 import ePixFpga as fpga
 import argparse
 
-
-# L0 Processing: subtract per-pixel dark (no wrap-around, clamp to [0, 65535])
 import numpy as np
-import rogue.interfaces.stream
+import rogue.interfaces.stream  # 不用别名
 
 class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
-	"""VC0帧级处理：raw-dark -> 列CM(阈值=4*n1+mean(raw-dark)) -> 裁剪 -> 回写<uint16>。"""
+	"""VC0: raw-dark -> 列CM(阈值=4*n1+mean(raw-dark)) -> 裁剪 -> 回写<uint16>"""
 
 	HEAD_LEN  = 40
 	NY        = 176
@@ -56,26 +54,22 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 
 	def __init__(self,
 				 dark_path="/data/epix/software/Mossbauer/dark_2D.npy",
-				 n1=8,                          # 仅列CM用；base_thr=4*n1
+				 n1=8,
 				 enable_common_mode=True,
 				 clamp_min=0, clamp_max=0xFFFF):
-		# 显式初始化两个基类
 		rogue.interfaces.stream.Slave.__init__(self)
 		rogue.interfaces.stream.Master.__init__(self)
 
-		# 读取 dark_2D 并展平（期望 176x768）
+		# 读 dark（允许(176,768)或可reshape的一维）
 		dark = np.load(dark_path, mmap_mode='r')
-		flat = np.asarray(dark, order='C').reshape(-1)
-		if flat.size != self.U16_COUNT:
-			raise ValueError(f"dark_2D size mismatch: got {flat.size} pixels, need {self.U16_COUNT}")
+		dark = np.asarray(dark, order='C')
+		if dark.size != self.U16_COUNT:
+			raise ValueError(f"dark size {dark.size} != {self.U16_COUNT}")
+		self.dark_i32 = dark.reshape(self.NY, self.NX).astype(np.int32, copy=False)
 
-		# 预分配/常驻缓冲
-		self.dark_i32 = flat.astype(np.int32, copy=False)
-		self.work_i32 = np.empty(self.U16_COUNT, dtype=np.int32)
-		self.work_2d  = self.work_i32.reshape(self.NY, self.NX)
-
-		self.mask     = np.empty(self.U16_COUNT, dtype=bool)
-		self.mask_2d  = self.mask.reshape(self.NY, self.NX)
+		# 预分配工作区（每帧完全覆盖，避免历史残留）
+		self.work_i32 = np.empty((self.NY, self.NX), dtype=np.int32)
+		self.mask_2d  = np.empty((self.NY, self.NX), dtype=bool)
 		self.col_med  = np.empty(self.NX, dtype=np.int32)
 
 		# 参数
@@ -84,52 +78,51 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 		self.clamp_min = int(clamp_min)
 		self.clamp_max = int(clamp_max)
 
-	def _col_common_mode(self, cnt: int, thr: int) -> None:
-		"""在 raw-dark 空间：仅用 < thr 的像素参与每列中位数，并从 work_i32 中扣除。"""
-		if not self.enable_common_mode or cnt != self.U16_COUNT:
+	def _col_common_mode(self, thr: int) -> None:
+		"""在 raw-dark 空间：仅 w<thr 的像素参与每列中位数，并从 work_i32 中扣除。"""
+		if not self.enable_common_mode:
 			return
-		f2d = self.work_2d
-
-		# 仅 raw-dark < thr 的像素参与列中位数
-		np.less(f2d, thr, out=self.mask_2d)
-		ma = np.ma.array(f2d, mask=~self.mask_2d)
+		w2d = self.work_i32
+		np.less(w2d, thr, out=self.mask_2d)                         # True参与
+		ma = np.ma.array(w2d, mask=~self.mask_2d)
 		m  = np.ma.median(ma, axis=0)
 		if isinstance(m, np.ma.MaskedArray):
 			m = m.filled(0)
-
 		self.col_med[:] = np.asarray(m, dtype=np.int32)
-		f2d -= self.col_med  # 按列相减（原地）
+		w2d -= self.col_med                                          # 原地按列扣除
 
 	def _acceptFrame(self, frame):
 		size = frame.getPayload()
-		buf  = bytearray(size)
+		# 读出整帧
+		buf = bytearray(size)
 		frame.read(buf, 0)
 
-		# 仅处理 [40, 40+NY*NX*2) 的有效区
+		# 仅处理 [40, 40+DATA_LEN) 区域
 		valid_bytes = min(self.DATA_LEN, max(0, size - self.HEAD_LEN))
 		cnt = valid_bytes // 2
-		if cnt > 0:
-			# 原始有效区（<u2, little-endian）
+		if cnt >= self.U16_COUNT:   # 只在完整帧上做处理（更安全）
+			# 原始有效区视图（<u2, 小端）
 			arr_u2 = np.frombuffer(buf, dtype=np.dtype('<u2'),
-								   count=cnt, offset=self.HEAD_LEN)
+								   count=self.U16_COUNT, offset=self.HEAD_LEN).reshape(self.NY, self.NX)
 
-			# raw -> i32 工作区，做 raw - dark
-			w = self.work_i32[:cnt]
-			w[:] = arr_u2
-			np.subtract(w, self.dark_i32[:cnt], out=w, casting='unsafe')
+			# raw -> i32：完全覆盖工作区
+			np.subtract(arr_u2, self.dark_i32, out=self.work_i32, casting='unsafe')
+
+			# （可选）帧级CM：若需要，与 epix.py 对齐，可放开下一行
+			# self._frame_common_mode()
 
 			# 列CM阈值：4*n1 + mean(raw-dark)
-			mean_i32 = int(np.add.reduce(w, dtype=np.int64) // cnt)
+			mean_i32 = int(np.add.reduce(self.work_i32, dtype=np.int64) // self.U16_COUNT)
 			thr = 4 * self.n1 + mean_i32
 			if   thr < 0:       thr = 0
-			elif thr > 0xFFFF:  thr = 0xFFFF  # 保险限幅，可去
+			elif thr > 0xFFFF:  thr = 0xFFFF
 
 			# 列CM（基于 raw-dark）
-			self._col_common_mode(cnt, thr)
+			self._col_common_mode(thr)
 
-			# 裁剪并写回 <u2
-			np.clip(w, self.clamp_min, self.clamp_max, out=w)
-			arr_u2[:] = w
+			# 裁剪并写回 <u2（原地覆盖同一缓冲）
+			np.clip(self.work_i32, self.clamp_min, self.clamp_max, out=self.work_i32)
+			arr_u2[:, :] = self.work_i32.astype(np.uint16, copy=False)
 
 		# 送出帧
 		out = self._reqFrame(size, True)
