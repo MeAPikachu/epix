@@ -156,7 +156,7 @@ else:
 # Add data stream to file as channel 1
 # File writer
 dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
-dataWriter._setBufferSize(10_000_000)
+#dataWriter._setBufferSize(10_000_000)
 dataWriter.setMaxSize(1_000_000_000)
 
 
@@ -167,7 +167,7 @@ pyrogue.streamConnect(pgpVc0, l0)
 pyrogue.streamConnect(l0, dataWriter.getChannel(0x1))
 
 rawWriter = pyrogue.utilities.fileio.StreamWriter(name='rawWriter')
-rawWriter._setBufferSize(5_000_000)
+#rawWriter._setBufferSize(5_000_000)
 rawWriter.setMaxSize(1_000_000_000) 
 sampler = StreamSampler(min_interval=1.0)
 pyrogue.streamTap(pgpVc0,sampler)
