@@ -45,13 +45,18 @@ import argparse
 import numpy as np
 import rogue.interfaces.stream
 
-
 class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
-	HEAD_LEN  = 40
-	DATA_LEN  = 270_336                 # 176 * (192*4) * 2 bytes
-	U16_COUNT = DATA_LEN // 2           # 135,168 pixels
 
-	def __init__(self, dark_path="/data/epix/software/Mossbauer/dark_2D.npy",
+	HEAD_LEN  = 40
+	NY        = 176
+	NX        = 768
+	U16_COUNT = NY * NX
+	DATA_LEN  = U16_COUNT * 2 
+
+	def __init__(self,
+				 dark_path="/data/epix/software/Mossbauer/dark_2D.npy",
+				 n1=8,
+				 enable_common_mode=True,
 				 clamp_min=0, clamp_max=0xFFFF):
 		rogue.interfaces.stream.Slave.__init__(self)
 		rogue.interfaces.stream.Master.__init__(self)
@@ -61,10 +66,29 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 		if flat.size != self.U16_COUNT:
 			raise ValueError(f"dark_2D size mismatch: got {flat.size} pixels, need {self.U16_COUNT}")
 
-		self.dark_i32 = flat.astype(np.int32, copy=False)      
-		self.work_i32 = np.empty(self.U16_COUNT, dtype=np.int32)  
+		self.dark_i32 = flat.astype(np.int32, copy=False)
+		self.work_i32 = np.empty(self.U16_COUNT, dtype=np.int32)
+		self.work_2d  = self.work_i32.reshape(self.NY, self.NX)
+
+		self.mask     = np.empty(self.U16_COUNT, dtype=bool)
+		self.mask_2d  = self.mask.reshape(self.NY, self.NX)
+
+		self.col_med  = np.empty(self.NX, dtype=np.int32)
+
+		self.n1 = int(n1)
+		self.thr = 4 * self.n1
+		self.enable_common_mode = bool(enable_common_mode)
 		self.clamp_min = int(clamp_min)
 		self.clamp_max = int(clamp_max)
+
+	def _col_common_mode(self, cnt: int) -> None:
+		if not self.enable_common_mode or cnt != self.U16_COUNT:
+			return
+
+		np.less(self.work_2d, self.thr, out=self.mask_2d)
+		med = np.ma.array(self.work_2d, mask=~self.mask_2d).median(axis=0).filled(0.0)
+		self.col_med[:] = med.astype(np.int32, copy=False)
+		self.work_2d -= self.col_med
 
 	def _acceptFrame(self, frame):
 		size = frame.getPayload()
@@ -72,19 +96,24 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 		frame.read(buf, 0)
 
 		valid_bytes = min(self.DATA_LEN, max(0, size - self.HEAD_LEN))
-		cnt = valid_bytes // 2
+		cnt = valid_bytes // 2  
 		if cnt > 0:
-			arr_u2 = np.frombuffer(buf, dtype=np.dtype('<u2'), count=cnt, offset=self.HEAD_LEN)
+			arr_u2 = np.frombuffer(buf, dtype=np.dtype('<u2'),
+								   count=cnt, offset=self.HEAD_LEN)
+
+
 			w = self.work_i32[:cnt]
 			w[:] = arr_u2
 			np.subtract(w, self.dark_i32[:cnt], out=w, casting='unsafe')
+
+			self._col_common_mode(cnt)
+
 			np.clip(w, self.clamp_min, self.clamp_max, out=w)
 			arr_u2[:] = w  
 
 		out = self._reqFrame(size, True)
 		out.write(buf, 0)
 		self._sendFrame(out)
-
 
 try:
     from PyQt5.QtWidgets import *
@@ -199,9 +228,10 @@ else:
 # File writer
 dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
 #pyrogue.streamConnect(pgpVc0, dataWriter.getChannel(0x1))
-l0p= L0Process("/data/epix/software/Mossbauer/dark_2D.npy")
-pyrogue.streamConnect(pgpVc0, l0p)
-pyrogue.streamConnect(l0p, dataWriter.getChannel(0x1))
+l0 = L0Process(dark_path="/data/epix/software/Mossbauer/dark_2D.npy",
+               n1=8, enable_common_mode=True)
+pyrogue.streamConnect(pgpVc0, l0)
+pyrogue.streamConnect(l0, dataWriter.getChannel(0x1))
 
 # Add pseudoscope to file writer
 pyrogue.streamConnect(pgpVc2, dataWriter.getChannel(0x2))
