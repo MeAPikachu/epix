@@ -49,7 +49,7 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 	不做帧级CM。
 	"""
 
-	HEAD_LEN  = 40
+	HEAD_LEN  = 32
 	NY        = 176
 	NX        = 768
 	U16_COUNT = NY * NX                  # 135,168
