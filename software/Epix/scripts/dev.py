@@ -86,7 +86,10 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 			return
 
 		np.less(self.work_2d, self.thr, out=self.mask_2d)
-		med = np.ma.array(self.work_2d, mask=~self.mask_2d).median(axis=0).filled(0.0)
+		m = np.ma.median(np.ma.array(self.work_2d, mask=~self.mask_2d), axis=0)
+		if isinstance(m, np.ma.MaskedArray):
+			m = m.filled(0)
+		self.col_med[:] = np.asarray(m, dtype=np.int32)
 		self.col_med[:] = med.astype(np.int32, copy=False)
 		self.work_2d -= self.col_med
 
@@ -114,6 +117,7 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 		out = self._reqFrame(size, True)
 		out.write(buf, 0)
 		self._sendFrame(out)
+
 
 try:
     from PyQt5.QtWidgets import *
