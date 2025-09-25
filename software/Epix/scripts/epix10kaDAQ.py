@@ -4,9 +4,9 @@
 #-----------------------------------------------------------------------------
 # File       : epix10kaDAQ.py evolved from evalBoard.py
 # Author     : Ryan Herbst, rherbst@slac.stanford.edu
-# Modified by: Dionisio Doering
+# Modified by: Dionisio Doering , Chengjie Jia chengjie@stanford.edu
 # Created    : 2016-09-29
-# Last update: 2017-02-01
+# Last update: 2025-09-24
 #-----------------------------------------------------------------------------
 # Description:
 # Rogue interface to ePix 10ka board
@@ -141,8 +141,8 @@ if args.simulation:
    pgpVc2 = rogue.interfaces.stream.TcpClient('localhost',8004)
    pgpVc3 = rogue.interfaces.stream.TcpClient('localhost',8006)
 else:
-   pgpVc1 = rogue.hardware.pgp.PgpCard(args.pgp,0,0) # Data & cmds
-   pgpVc0 = rogue.hardware.pgp.PgpCard(args.pgp,0,1) # Registers for ePix board
+   pgpVc0 = rogue.hardware.pgp.PgpCard(args.pgp,0,1) # Data
+   pgpVc1 = rogue.hardware.pgp.PgpCard(args.pgp,0,0) # Registers for ePix board
    pgpVc2 = rogue.hardware.pgp.PgpCard(args.pgp,0,2) # PseudoScope
    pgpVc3 = rogue.hardware.pgp.PgpCard(args.pgp,0,3) # Monitoring (Slow ADC)
    print("")

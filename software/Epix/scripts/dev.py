@@ -196,8 +196,6 @@ l0p= L0Process("/data/epix/software/Mossbauer/dark_2D.npy")
 pyrogue.streamConnect(pgpVc0, l0p)
 pyrogue.streamConnect(l0p, dataWriter.getChannel(0x1))
 
-pyrogue.streamConnect(pgpVc0, adder)
-pyrogue.streamConnect(adder, dataWriter.getChannel(0x1))
 # Add pseudoscope to file writer
 pyrogue.streamConnect(pgpVc2, dataWriter.getChannel(0x2))
 pyrogue.streamConnect(pgpVc3, dataWriter.getChannel(0x3))
