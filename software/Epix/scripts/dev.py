@@ -217,8 +217,6 @@ class MyRunControl(pyrogue.RunControl):
     def _run(self):
         self.runCount.set(0) 
         self._last = int(time.time()) 
- 
- 
         while (self.runState.value() == 'Running'): 
             delay = 1.0 / ({value: key for key,value in self.runRate.enum.items()}[self._runRate]) 
             time.sleep(delay) 
@@ -248,20 +246,6 @@ class EpixBoard(pyrogue.Root):
         # Add Devices
         self.add(fpga.Epix10ka(name='Epix10ka', asic_rev=asic_rev, offset=0, memBase=srp, hidden=False, enabled=True))
         self.add(pyrogue.RunControl(name = 'runControl', description='Run Controller ePix 10ka', cmd=self.Trigger, rates={1:'1 Hz', 2:'2 Hz', 4:'4 Hz', 8:'8 Hz', 10:'10 Hz', 30:'30 Hz', 60:'60 Hz', 120:'120 Hz'}))
-        
-
-        
-
-
-# debug
-#mbcon = MbDebug()
-#pyrogue.streamTap(pgpVc0,mbcon)
-
-#mbcon1 = MbDebug()
-#pyrogue.streamTap(pgpVc1,mbcon)
-
-#mbcon2 = MbDebug()
-#pyrogue.streamTap(pgpVc3,mbcon)
 
 if (PRINT_VERBOSE): dbgData = rogue.interfaces.stream.Slave()
 if (PRINT_VERBOSE): dbgData.setDebug(60, "DATA[{}]".format(0))
@@ -273,10 +257,7 @@ appTop = QApplication(sys.argv)
 guiTop = pyrogue.gui.GuiTop(group = 'ePix10kaGui')
 ePixBoard = EpixBoard(guiTop, cmd, dataWriter, srp, args.asic_rev)
 # Add Raw Writer;
-
 ePixBoard.add(rawWriter)
-
-
 ePixBoard.start()
 guiTop.addTree(ePixBoard)
 guiTop.resize(1000,800)
@@ -291,12 +272,6 @@ if START_VIEWER:
    pyrogue.streamTap(pgpVc2, gui.eventReaderScope)# PseudoScope
    pyrogue.streamTap(pgpVc3, gui.eventReaderMonitoring) # Slow Monitoring
 
-# Create mesh node (this is for remote control only, no data is shared with this)
-#mNode = pyrogue.mesh.MeshNode('rogueTest',iface='eth0',root=ePixBoard)
-#mNode = pyrogue.mesh.MeshNode('rogueEpix10ka',iface='eth0',root=None)
-#mNode.setNewTreeCb(guiTop.addTree)
-#mNode.start()
-
 
 # Run gui
 if (START_GUI):
@@ -308,7 +283,4 @@ def stop():
 #    epics.stop()
     ePixBoard.stop()
     exit()
-
-# Start with: ipython -i scripts/epix10kaDAQ.py for interactive approach
-print("Started rogue mesh and epics V3 server. To exit type stop()")
 
