@@ -14,7 +14,7 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 
 	def __init__(self,
 				 dark_path="/data/epix/software/Mossbauer/dark_2D.npy",
-				 filter_path="data/epix/software/Mossbauer/filter.npy"
+				 filter_path="/data/epix/software/Mossbauer/filter.npy"
 				 n1=8,                          
 				 enable_common_mode=True,
 				 clamp_min=0, clamp_max=0xFFFF):
