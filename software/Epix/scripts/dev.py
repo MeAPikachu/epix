@@ -95,7 +95,7 @@ parser.add_argument(
     "--yml", 
     type     = str,
     required = False,
-    default  = '../yml/epix10ka_mossbauer_500Hz',
+    default  = '../yml/epix10ka_mossbauer_500Hz.yml',
     help     = "PGP device (default /dev/datadev_0)",
 )  
 
@@ -270,14 +270,15 @@ ePixBoard.add(rawWriter)
 
 ePixBoard.start()
 
+# Load the mossbauer yaml file; 
 ePixBoard.LoadConfig(args.yml[0])
 time.sleep(0.5)
 ePixBoard.LoadConfig(args.yml[0])
 time.sleep(0.5)
 
-
-# Parallel Readout; 
+# Enable the parallel raw record 
 ePixBoard.rawWriter.DataFile.set("/data/raw.dat")
+ePixBoard.rawWriter._writer.setMaxSize(500 * 1024**2)
 ePixBoard.rawWriter.Open.set(True) 
 rawWriter._writer.open("/data/raw.dat")
 
