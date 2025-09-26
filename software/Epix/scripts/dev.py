@@ -172,10 +172,18 @@ pyrogue.streamConnect(pgpVc0, l0)
 pyrogue.streamConnect(l0, dataWriter.getChannel(0x1))
 
 rawWriter = pyrogue.utilities.fileio.StreamWriter(name='rawWriter')
+L0Writer = pyrogue.utilities.fileio.StreamWriter(name='L0Writer')
 
+# Sampler for raw data; 
 sampler = StreamSampler(min_interval=1.0)
 pyrogue.streamTap(pgpVc0,sampler)
 pyrogue.streamConnect(sampler,rawWriter.getChannel(0x1))
+
+# Sampler for L0 data; 
+L0sampler = StreamSampler(min_interval=1.0)
+pyrogue.streamTap(l0,L0sampler)
+pyrogue.streamConnect(L0sampler,L0Writer.getChannel(0x1))
+
 
 # Add pseudoscope to file writer
 pyrogue.streamConnect(pgpVc2, dataWriter.getChannel(0x2))
@@ -272,12 +280,20 @@ def make_data_path(base_dir="/data"):
     return os.path.join(base_dir, f"data_{ts}.dat")
 data_path = make_data_path()
 
+def make_L0_path(base_dir="/data/L0"):
+    ts   = time.strftime("%Y%m%d_%H%M%S")
+    os.makedirs(base_dir, exist_ok=True)
+    return os.path.join(base_dir, f"data_{ts}.dat")
+L0_path = make_L0_path()
+
 # Create Gui
 appTop = QApplication(sys.argv)
 guiTop = pyrogue.gui.GuiTop(group = 'ePix10kaGui')
 ePixBoard = EpixBoard(guiTop, cmd, dataWriter, srp, args.asic_rev)
+
 # Add Raw Writer;
 ePixBoard.add(rawWriter)
+ePixBoard.add(L0Writer)
 
 ePixBoard.start()
 
@@ -297,6 +313,13 @@ ePixBoard.rawWriter.DataFile.set(raw_path)
 ePixBoard.rawWriter._writer.setMaxSize(500 * 1024**2)
 ePixBoard.rawWriter.Open.set(True) 
 rawWriter._writer.open(raw_path)
+
+# Enable the parallel raw record 
+ePixBoard.L0Writer.DataFile.set(L0_path)
+ePixBoard.L0Writer._writer.setMaxSize(500 * 1024**2)
+ePixBoard.L0Writer.Open.set(True) 
+L0Writer._writer.open(L0_path)
+
 
 guiTop.addTree(ePixBoard)
 guiTop.resize(1000,800)
