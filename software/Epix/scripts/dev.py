@@ -263,7 +263,7 @@ ePixBoard = EpixBoard(guiTop, cmd, dataWriter, srp, args.asic_rev)
 
 ePixBoard.start()
 
-rawWriter.dataFile.set("/data/raw.dat")
+rawWriter.DataFile.set("/data/raw.dat")
 rawWriter.Open.set(True) 
 rawWriter._writer.open("/data/raw.dat")
 
