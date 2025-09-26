@@ -152,26 +152,30 @@ def main():
 
     # command board to read ePix config
     board.LoadConfig(args.yml[0])
+    time.sleep(0.5)
+    board.LoadConfig(args.yml[0])
+    time.sleep(0.5)
     #targetASIC = getattr(board.Epix10ka, 'Epix10kaAsic' + str(asic))
 
  
     board.dataWriter.DataFile.set(ofilename)  # tell datawriter where to write data
     board.dataWriter.Open.set(True) 
+    dw._writer.open(ofilename)
 
     acq_log.info("Finished configuration. Acquiring data ...")
     # start with a clean slate
     board.Epix10ka.EpixFpgaRegisters.AutoDaqEnable.set(False)
     board.Epix10ka.EpixFpgaRegisters.AutoRunEnable.set(False)
-    board.Epix10ka.EpixFpgaRegisters.AutoDaqEnable.set(True)
-    board.Epix10ka.EpixFpgaRegisters.AutoRunEnable.set(True)
+    #board.Epix10ka.EpixFpgaRegisters.AutoDaqEnable.set(True)
+    #board.Epix10ka.EpixFpgaRegisters.AutoRunEnable.set(True)
  
     time.sleep(args.time[0])  # acquisition time
     acq_log.info("Flushing...")
-    board.Epix10ka.EpixFpgaRegisters.AutoDaqEnable.set(False)
-    board.Epix10ka.EpixFpgaRegisters.AutoRunEnable.set(False)
+    #board.Epix10ka.EpixFpgaRegisters.AutoDaqEnable.set(False)
+    #board.Epix10ka.EpixFpgaRegisters.AutoRunEnable.set(False)
 
     board.dataWriter.Open.set(False)
-
+    dw._writer.close()
     board.stop()
     acq_log.info("Done")
 
