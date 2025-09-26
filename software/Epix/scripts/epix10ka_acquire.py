@@ -10,6 +10,7 @@ Acquire data from epix10ka
 :Style: OpenStack Style Guidelines https://docs.openstack.org/developer/hacking/
 :vcs_id: $Id$
 """
+import setupLibPaths
 import argparse
 import ePixFpga as fpga
 import logging
@@ -18,6 +19,26 @@ import pyrogue.utilities.fileio
 import rogue
 import sys
 import time
+
+import rogue.hardware.pgp
+import pyrogue as pr
+import pyrogue.utilities.prbs
+import pyrogue.utilities.fileio
+import pyrogue.interfaces.simulation
+import pyrogue.gui
+import surf
+import surf.axi
+import surf.protocols.ssi
+import threading
+import signal
+import atexit
+import yaml
+import time
+import sys
+import testBridge
+import ePixViewer as vi
+import ePixFpga as fpga
+import argparse
 
 
 class frameit(rogue.interfaces.stream.Slave):
