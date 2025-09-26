@@ -1,14 +1,12 @@
 import time
 import rogue.interfaces.stream
 class StreamSampler(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
-	
 	HEAD_LEN  = 32
 	NY        = 176
 	NX        = 768
 	U16_COUNT = NY * NX                  # 135,168
 	DATA_LEN  = U16_COUNT * 2   
-	
-	
+    
 	def __init__(self, min_interval: float = 1.0):
 		rogue.interfaces.stream.Slave.__init__(self)
 		rogue.interfaces.stream.Master.__init__(self)
