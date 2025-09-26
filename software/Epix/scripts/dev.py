@@ -268,30 +268,20 @@ if (PRINT_VERBOSE): dbgData = rogue.interfaces.stream.Slave()
 if (PRINT_VERBOSE): dbgData.setDebug(60, "DATA[{}]".format(0))
 if (PRINT_VERBOSE): pyrogue.streamTap(pgpVc0, dbgData)
 
-def make_raw_path(base_dir="/data/raw"):
-    ts   = time.strftime("%Y%m%d_%H%M%S")
-    os.makedirs(base_dir, exist_ok=True)
-    return os.path.join(base_dir, f"raw_{ts}.dat")
-raw_path = make_raw_path()
-
 def make_data_path(base_dir="/data"):
     ts   = time.strftime("%Y%m%d_%H%M%S")
     os.makedirs(base_dir, exist_ok=True)
     return os.path.join(base_dir, f"data_{ts}.dat")
-data_path = make_data_path()
-
-def make_L0_path(base_dir="/data/L0"):
-    ts   = time.strftime("%Y%m%d_%H%M%S")
-    os.makedirs(base_dir, exist_ok=True)
-    return os.path.join(base_dir, f"data_{ts}.dat")
-L0_path = make_L0_path()
+raw_path = make_data_path("/data/raw/")
+data_path = make_data_path("/data/")
+L0_path = make_data_path("/data/L0/")
 
 # Create Gui
 appTop = QApplication(sys.argv)
 guiTop = pyrogue.gui.GuiTop(group = 'ePix10kaGui')
 ePixBoard = EpixBoard(guiTop, cmd, dataWriter, srp, args.asic_rev)
 
-# Add Raw Writer;
+# Add Raw Writer and L0 Writer for sampling; 
 ePixBoard.add(rawWriter)
 ePixBoard.add(L0Writer)
 
@@ -320,7 +310,7 @@ ePixBoard.L0Writer._writer.setMaxSize(500 * 1024**2)
 ePixBoard.L0Writer.Open.set(True) 
 L0Writer._writer.open(L0_path)
 
-
+# GUI
 guiTop.addTree(ePixBoard)
 guiTop.resize(1000,800)
 
