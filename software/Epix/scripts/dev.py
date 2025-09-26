@@ -253,24 +253,14 @@ if (PRINT_VERBOSE): dbgData.setDebug(60, "DATA[{}]".format(0))
 if (PRINT_VERBOSE): pyrogue.streamTap(pgpVc0, dbgData)
 
 
-# Create GUI
-
-dataWriter._writer.setBufferSize(10_000_000)      # 10 MB
-dataWriter._writer.setMaxSize(100_000_000)      # 1 GB 分卷
-dataWriter.DataFile.set('/data/test/run.dat')
-dataWriter.open.set(True) 
-
-rawWriter._writer.setBufferSize(5_000_000)
-rawWriter._writer.setMaxSize(50_000_000)
-rawWriter.DataFile.set('/data/test/raw.dat')
-rawWriter.open.set(True) 
+# Create Gui
 
 appTop = QApplication(sys.argv)
 guiTop = pyrogue.gui.GuiTop(group = 'ePix10kaGui')
 ePixBoard = EpixBoard(guiTop, cmd, dataWriter, srp, args.asic_rev)
 # Add Raw Writer;
-#ePixBoard.add(rawWriter)
-
+ePixBoard.add(rawWriter)
+ePixBoard.rawWriter.dataFile.set("/data/raw.dat")
 
 ePixBoard.start()
 guiTop.addTree(ePixBoard)
