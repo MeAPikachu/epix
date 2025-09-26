@@ -83,30 +83,19 @@ def main():
 
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("-v", "--verbose", action="store_true", help="Show debugging info.")
-    parser.add_argument("-a", "--asic", nargs=1, type=int, metavar=('value'),
-                        help="config ASIC 0..3")
-    parser.add_argument("-b", "--bandwidth", action="store_true", help="Bandwidth stats")
-    parser.add_argument("-n", "--nosave", action="store_true", help="Dont save data to disk")
-    parser.add_argument("-l", "--linearitytest", action="store_true", help="Enable Test Pulser")
-    parser.add_argument("-s", "--setmatrix", nargs=1, metavar=('smat'), type=int,
-                        help="Set Matrix config.")
     parser.add_argument("-o", "--outputfile", nargs=1, metavar=('FILE'),
                         help="File name to save acquired data to.")
     parser.add_argument("-y", "--yml", nargs=1, metavar=('YMLFILE'),
                         help="yml config file.", required=True)
     parser.add_argument("-t", "--time", nargs=1, metavar=('DURATION'), type=float,
                         help="total acquisition time.", required=True)
-    parser.add_argument("-r", "--trbit", nargs=1, metavar=('trbit'), type=int,
-                        help="Set trbit.")
-    parser.add_argument("-x", "--hrtest", nargs=1, metavar=('hrtest'), type=int,
-                        help="Set hrtest.")
     args = parser.parse_args()
 
     if args.verbose:
         myloglevel = logging.DEBUG
     else:
         myloglevel = logging.INFO
+    
     # create own logger, rogue hijacks default logger
     acq_log = logging.getLogger("epix10ka.acquirelog")
     acq_log.setLevel(myloglevel)

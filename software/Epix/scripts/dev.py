@@ -259,10 +259,14 @@ appTop = QApplication(sys.argv)
 guiTop = pyrogue.gui.GuiTop(group = 'ePix10kaGui')
 ePixBoard = EpixBoard(guiTop, cmd, dataWriter, srp, args.asic_rev)
 # Add Raw Writer;
-ePixBoard.add(rawWriter)
-ePixBoard.rawWriter.dataFile.set("/data/raw.dat")
+#ePixBoard.add(rawWriter)
 
 ePixBoard.start()
+
+rawWriter.dataFile.set("/data/raw.dat")
+rawWriter.Open.set(True) 
+rawWriter._writer.open("/data/raw.dat")
+
 guiTop.addTree(ePixBoard)
 guiTop.resize(1000,800)
 
