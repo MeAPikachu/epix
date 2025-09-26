@@ -271,14 +271,14 @@ ePixBoard.add(rawWriter)
 ePixBoard.start()
 
 # Load the mossbauer yaml file; 
-ePixBoard.LoadConfig(args.yml[0])
-time.sleep(0.5)
-ePixBoard.LoadConfig(args.yml[0])
-time.sleep(0.5)
+ePixBoard.LoadConfig(args.yml)
+time.sleep(0.2)
+ePixBoard.LoadConfig(args.yml)
+time.sleep(0.2)
 
 # Enable the parallel raw record 
 ePixBoard.rawWriter.DataFile.set("/data/raw.dat")
-ePixBoard.rawWriter._writer.setMaxSize(10 * 1024**2)
+ePixBoard.rawWriter._writer.setMaxSize(500 * 1024**2)
 ePixBoard.rawWriter.Open.set(True) 
 rawWriter._writer.open("/data/raw.dat")
 
