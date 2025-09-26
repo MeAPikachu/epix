@@ -155,7 +155,7 @@ def main():
     board.add(dw)
     board.add(fpga.Epix10ka(name='Epix10ka', offset=0, memBase=srp, enabled=True))
 
-    board.start(pollEn=False)
+    board.start()
 
     # command board to read ePix config
     board.readConfig(args.yml[0])
