@@ -260,15 +260,19 @@ if (PRINT_VERBOSE): dbgData = rogue.interfaces.stream.Slave()
 if (PRINT_VERBOSE): dbgData.setDebug(60, "DATA[{}]".format(0))
 if (PRINT_VERBOSE): pyrogue.streamTap(pgpVc0, dbgData)
 
-def make_raw_path(base_dir="/data/raw",):
+def make_raw_path(base_dir="/data/raw"):
     ts   = time.strftime("%Y%m%d_%H%M%S")
     os.makedirs(base_dir, exist_ok=True)
     return os.path.join(base_dir, f"raw_{ts}.dat")
 raw_path = make_raw_path()
 
+def make_data_path(base_dir="/data"):
+    ts   = time.strftime("%Y%m%d_%H%M%S")
+    os.makedirs(base_dir, exist_ok=True)
+    return os.path.join(base_dir, f"data_{ts}.dat")
+data_path = make_data_path()
 
 # Create Gui
-
 appTop = QApplication(sys.argv)
 guiTop = pyrogue.gui.GuiTop(group = 'ePix10kaGui')
 ePixBoard = EpixBoard(guiTop, cmd, dataWriter, srp, args.asic_rev)
@@ -282,6 +286,11 @@ ePixBoard.LoadConfig(args.yml)
 time.sleep(0.2)
 ePixBoard.LoadConfig(args.yml)
 time.sleep(0.2)
+
+#Data Path;
+ePixBoard.dataWriter.DataFile.set(data_path)
+ePixBoard.dataWriter._writer.setMaxSize(5*1024 * 1024**2)
+ePixBoard.dataWriter.Open.set(True) 
 
 # Enable the parallel raw record 
 ePixBoard.rawWriter.DataFile.set(raw_path)
