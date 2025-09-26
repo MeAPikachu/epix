@@ -32,6 +32,7 @@ import surf.protocols.ssi
 import threading
 import signal
 import atexit
+import os 
 import yaml
 import time
 import sys
@@ -259,6 +260,12 @@ if (PRINT_VERBOSE): dbgData = rogue.interfaces.stream.Slave()
 if (PRINT_VERBOSE): dbgData.setDebug(60, "DATA[{}]".format(0))
 if (PRINT_VERBOSE): pyrogue.streamTap(pgpVc0, dbgData)
 
+def make_raw_path(base_dir="/data/raw",):
+    ts   = time.strftime("%Y%m%d_%H%M%S")
+    os.makedirs(base_dir, exist_ok=True)
+    return os.path.join(base_dir, f"raw_{ts}.dat")
+raw_path = make_raw_path()
+
 
 # Create Gui
 
@@ -277,10 +284,10 @@ ePixBoard.LoadConfig(args.yml)
 time.sleep(0.2)
 
 # Enable the parallel raw record 
-ePixBoard.rawWriter.DataFile.set("/data/raw.dat")
+ePixBoard.rawWriter.DataFile.set(raw_path)
 ePixBoard.rawWriter._writer.setMaxSize(500 * 1024**2)
 ePixBoard.rawWriter.Open.set(True) 
-rawWriter._writer.open("/data/raw.dat")
+rawWriter._writer.open(raw_path)
 
 guiTop.addTree(ePixBoard)
 guiTop.resize(1000,800)
