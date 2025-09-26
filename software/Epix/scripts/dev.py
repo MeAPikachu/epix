@@ -91,6 +91,13 @@ parser.add_argument(
     help     = "Start control GUI",
 )  
 
+parser.add_argument(
+    "--yml", 
+    type     = str,
+    required = False,
+    default  = '../yml/epix10ka_mossbauer_500Hz',
+    help     = "PGP device (default /dev/datadev_0)",
+)  
 
 parser.add_argument(
     "--pgp", 
@@ -263,6 +270,13 @@ ePixBoard.add(rawWriter)
 
 ePixBoard.start()
 
+ePixBoard.LoadConfig(args.yml[0])
+time.sleep(0.5)
+ePixBoard.LoadConfig(args.yml[0])
+time.sleep(0.5)
+
+
+# Parallel Readout; 
 ePixBoard.rawWriter.DataFile.set("/data/raw.dat")
 ePixBoard.rawWriter.Open.set(True) 
 rawWriter._writer.open("/data/raw.dat")
