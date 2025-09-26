@@ -278,7 +278,7 @@ time.sleep(0.5)
 
 # Enable the parallel raw record 
 ePixBoard.rawWriter.DataFile.set("/data/raw.dat")
-ePixBoard.rawWriter._writer.setMaxSize(500 * 1024**2)
+ePixBoard.rawWriter._writer.setMaxSize(10 * 1024**2)
 ePixBoard.rawWriter.Open.set(True) 
 rawWriter._writer.open("/data/raw.dat")
 
