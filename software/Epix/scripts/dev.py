@@ -182,7 +182,7 @@ pyrogue.streamConnect(L0sampler,L0Writer.getChannel(0x1))
 # All information Preserve; 
 l1bm = L1BitmaskCompressor(threshold=50, emit_empty=False)
 pyrogue.streamTap(l0, l1bm)
-pyrogue.streamConnect(l1bm, L1Writer.getChannel(0x4))
+pyrogue.streamConnect(l1bm, L1Writer.getChannel(0x1))
 
 
 # Add pseudoscope to file writer
