@@ -18,14 +18,13 @@ class StreamSampler(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Maste
 		if (now - self._last_t) < self.min_interval:
 			return
 		self._last_t = now
-
-        size = frame.getPayload()
+		size = frame.getPayload()
 		# Only process the valid bytes; 
 		data_bytes = max(0, size - self.HEAD_LEN)
 		valid_bytes = min(self.DATA_LEN, data_bytes)
 		if valid_bytes < self.DATA_LEN:
 			return
-
+		
 		buf  = bytearray(size)
 		frame.read(buf, 0)
 		out = self._reqFrame(size, True)
