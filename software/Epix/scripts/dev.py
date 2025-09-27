@@ -41,7 +41,6 @@ import ePixViewer as vi
 import ePixFpga as fpga
 import argparse
 
-
 from L0Process import L0Process
 from StreamSampler import StreamSampler
 
@@ -70,7 +69,6 @@ parser.add_argument(
     default  = False,
     help     = "Enable auto-polling",
 ) 
-
 parser.add_argument(
     "--initRead", 
     type     = argBool,
@@ -78,7 +76,6 @@ parser.add_argument(
     default  = False,
     help     = "Enable read all variables at start",
 )  
-
 parser.add_argument(
     "--viewer", 
     type     = argBool,
@@ -86,7 +83,6 @@ parser.add_argument(
     default  = True,
     help     = "Start viewer",
 )  
-
 parser.add_argument(
     "--gui", 
     type     = argBool,
@@ -94,15 +90,13 @@ parser.add_argument(
     default  = True,
     help     = "Start control GUI",
 )  
-
 parser.add_argument(
     "--yml", 
     type     = str,
     required = False,
     default  = '../yml/epix10ka_mossbauer_500Hz.yml',
-    help     = "PGP device (default /dev/datadev_0)",
+    help     = "Default yml is the mossbauer 500Hz",
 )  
-
 parser.add_argument(
     "--pgp", 
     type     = str,
@@ -110,7 +104,6 @@ parser.add_argument(
     default  = '/dev/datadev_0',
     help     = "PGP device (default /dev/datadev_0)",
 )  
-
 parser.add_argument(
     "--verbose", 
     type     = argBool,
@@ -118,7 +111,6 @@ parser.add_argument(
     default  = False,
     help     = "Print debug info",
 )  
-
 parser.add_argument(
     "--simulation", 
     type     = argBool,
@@ -126,7 +118,6 @@ parser.add_argument(
     default  = False,
     help     = "Connect to VCS simulation",
 )  
-
 parser.add_argument(
     "--asic_rev", 
     type     = int,
@@ -134,11 +125,8 @@ parser.add_argument(
     default  = 1,
     help     = "ASIC rev 1 or 2",
 )
-
-
 # Get the arguments
 args = parser.parse_args()
-
 #############################################
 # Define if the GUI is started (1 starts it)
 START_GUI = args.gui
