@@ -42,6 +42,7 @@ import ePixFpga as fpga
 import argparse
 
 from L0Process import L0Process
+from L1BitmaskCompressor import L1BitmaskCompressor
 from StreamSampler import StreamSampler
 
 from Board_utils import EpixBoard,MyRunControl,MbDebug
@@ -165,6 +166,8 @@ pyrogue.streamConnect(l0, dataWriter.getChannel(0x1))
 # Create the Writer for sampling; 
 rawWriter = pyrogue.utilities.fileio.StreamWriter(name='rawWriter')
 L0Writer = pyrogue.utilities.fileio.StreamWriter(name='L0Writer')
+L1Writer= pyrogue.utilities.fileio.StreamWriter(name='L1Writer') 
+
 
 # Sampler for raw data; 
 sampler = StreamSampler(min_interval=1.0)
@@ -175,6 +178,12 @@ pyrogue.streamConnect(sampler,rawWriter.getChannel(0x1))
 L0sampler = StreamSampler(min_interval=1.0)
 pyrogue.streamTap(l0,L0sampler)
 pyrogue.streamConnect(L0sampler,L0Writer.getChannel(0x1))
+
+# All information Preserve; 
+l1bm = L1BitmaskCompressor(threshold=50, emit_empty=False)
+pyrogue.streamTap(l0, l1bm)
+pyrogue.streamConnect(l1bm, L1Writer.getChannel(0x4))
+
 
 # Add pseudoscope to file writer
 pyrogue.streamConnect(pgpVc2, dataWriter.getChannel(0x2))
@@ -196,6 +205,8 @@ if (PRINT_VERBOSE): pyrogue.streamTap(pgpVc0, dbgData)
 raw_path = Board_utils.make_data_path("/data/raw/")
 data_path = Board_utils.make_data_path("/data/")
 L0_path = Board_utils.make_data_path("/data/L0/")
+L1_path = Board_utils.make_data_path("/data/L1/")
+
 
 # Create Gui
 # The command is the software trigger system; 
@@ -206,6 +217,7 @@ ePixBoard = EpixBoard(guiTop, cmd, dataWriter, srp, args.asic_rev)
 # Add Raw Writer and L0 Writer to the board for sampling;
 ePixBoard.add(rawWriter)
 ePixBoard.add(L0Writer)
+ePixBoard.add(L1Writer)
 ePixBoard.start()
 
 # Load the mossbauer yaml file; 
@@ -225,11 +237,17 @@ ePixBoard.rawWriter._writer.setMaxSize(500 * 1024**2)
 ePixBoard.rawWriter.Open.set(True) 
 rawWriter._writer.open(raw_path)
 
-# Enable the parallel raw record 
+# Enable the Processed L0 record 
 ePixBoard.L0Writer.DataFile.set(L0_path)
 ePixBoard.L0Writer._writer.setMaxSize(500 * 1024**2)
 ePixBoard.L0Writer.Open.set(True) 
 L0Writer._writer.open(L0_path)
+
+# Enable the Bitmask L1 compressor
+ePixBoard.L1Writer.DataFile.set(L1_path)
+ePixBoard.L1Writer._writer.setMaxSize(5*1024 * 1024**2)
+ePixBoard.L1Writer.Open.set(True) 
+L1Writer._writer.open(L1_path)
 
 # GUI
 guiTop.addTree(ePixBoard)
