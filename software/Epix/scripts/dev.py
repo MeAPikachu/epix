@@ -233,7 +233,7 @@ ePixBoard.add(rawWriter)
 ePixBoard.add(L0Writer)
 ePixBoard.add(L1Writer)
 ePixBoard.add(S2Writer)
-ePixBoard.start(serverPort=9099)
+ePixBoard.start()
 
 # Load the mossbauer yaml file; 
 ePixBoard.LoadConfig(args.yml)
