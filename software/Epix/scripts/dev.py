@@ -43,6 +43,7 @@ import argparse
 
 from L0Process import L0Process
 from L1Process import L1Process
+from L2Spectrum import L2Spectrum
 from L1BitmaskCompressor import L1BitmaskCompressor
 from StreamSampler import StreamSampler
 
@@ -170,10 +171,14 @@ pyrogue.streamConnect(pgpVc0, l0)
 pyrogue.streamConnect(l0,l1)
 pyrogue.streamConnect(l1, dataWriter.getChannel(0x1))
 
+
+# Parallel Writing; 
 # Create the Writer for sampling; 
 rawWriter = pyrogue.utilities.fileio.StreamWriter(name='rawWriter')
 L0Writer = pyrogue.utilities.fileio.StreamWriter(name='L0Writer')
 L1Writer= pyrogue.utilities.fileio.StreamWriter(name='L1Writer') 
+S2Writer = pyrogue.utilities.fileio.StreamWriter(name='S2Writer')
+
 # Additional Channels for data writing; 
 # Sampler for raw data; 
 sampler = StreamSampler(min_interval=1.0)
@@ -187,6 +192,11 @@ pyrogue.streamConnect(L0sampler,L0Writer.getChannel(0x1))
 l1bm = L1BitmaskCompressor(threshold=50, emit_empty=False)
 pyrogue.streamTap(l0, l1bm)
 pyrogue.streamConnect(l1bm, L1Writer.getChannel(0x1))
+# Spectrum
+specTap = L2Spectrum(every_n=10)  # 每10帧输出一次
+pyrogue.streamTap(l1, specTap)                         # 从 L1 旁路
+pyrogue.streamConnect(specTap, S2Writer.getChannel(0x6))
+
 # Add pseudoscope to file writer
 pyrogue.streamConnect(pgpVc2, dataWriter.getChannel(0x2))
 pyrogue.streamConnect(pgpVc3, dataWriter.getChannel(0x3))
@@ -209,6 +219,7 @@ raw_path = Board_utils.make_data_path("/data/raw/")
 data_path = Board_utils.make_data_path("/data/")
 L0_path = Board_utils.make_data_path("/data/L0/")
 L1_path = Board_utils.make_data_path("/data/L1/")
+S2_path = Board_utils.make_data_path("/data/S2/")
 
 
 # Create Gui
@@ -221,6 +232,7 @@ ePixBoard = EpixBoard(guiTop, cmd, dataWriter, srp, args.asic_rev)
 ePixBoard.add(rawWriter)
 ePixBoard.add(L0Writer)
 ePixBoard.add(L1Writer)
+ePixBoard.add(S2Writer)
 ePixBoard.start()
 
 # Load the mossbauer yaml file; 
@@ -249,6 +261,11 @@ ePixBoard.L1Writer.DataFile.set(L1_path)
 ePixBoard.L1Writer._writer.setMaxSize(5*1024 * 1024**2)
 ePixBoard.L1Writer.Open.set(True) 
 L1Writer._writer.open(L1_path)
+# S2 Writer
+ePixBoard.S2Writer.DataFile.set(L1_path)
+ePixBoard.S2Writer._writer.setMaxSize(500 * 1024**2)
+ePixBoard.S2Writer.Open.set(True) 
+S2Writer._writer.open(S2_path)
 
 # GUI
 guiTop.addTree(ePixBoard)
