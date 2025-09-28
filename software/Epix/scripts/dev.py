@@ -229,7 +229,7 @@ guiTop = pyrogue.gui.GuiTop(group = 'ePix10kaGui')
 ePixBoard = EpixBoard(guiTop, cmd, dataWriter, srp, args.asic_rev)
 
 # Add Raw Writer and L0 Writer to the board for sampling;
-ePixBoard.add(rawWriter)
+#ePixBoard.add(rawWriter)
 ePixBoard.add(L0Writer)
 ePixBoard.add(L1Writer)
 ePixBoard.add(S2Writer)
