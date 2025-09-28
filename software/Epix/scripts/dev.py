@@ -172,29 +172,26 @@ rawWriter = pyrogue.utilities.fileio.StreamWriter(name='rawWriter')
 L0Writer = pyrogue.utilities.fileio.StreamWriter(name='L0Writer')
 L1Writer= pyrogue.utilities.fileio.StreamWriter(name='L1Writer') 
 
-
+# Additional Channels for data writing; 
 # Sampler for raw data; 
 sampler = StreamSampler(min_interval=1.0)
 pyrogue.streamTap(pgpVc0,sampler)
 pyrogue.streamConnect(sampler,rawWriter.getChannel(0x1))
-
 # Sampler for L0 data; 
 L0sampler = StreamSampler(min_interval=1.0)
 pyrogue.streamTap(l0,L0sampler)
 pyrogue.streamConnect(L0sampler,L0Writer.getChannel(0x1))
-
 # All information Preserve; 
 l1bm = L1BitmaskCompressor(threshold=50, emit_empty=False)
 pyrogue.streamTap(l0, l1bm)
 pyrogue.streamConnect(l1bm, L1Writer.getChannel(0x1))
-
-
 # Add pseudoscope to file writer
 pyrogue.streamConnect(pgpVc2, dataWriter.getChannel(0x2))
 pyrogue.streamConnect(pgpVc3, dataWriter.getChannel(0x3))
-
+# Software
 cmd = rogue.protocols.srp.Cmd()
 pyrogue.streamConnect(cmd, pgpVc0)
+
 
 # Create and Connect SRP to VC1 to send commands
 srp = rogue.protocols.srp.SrpV0()
@@ -240,13 +237,11 @@ ePixBoard.rawWriter.DataFile.set(raw_path)
 ePixBoard.rawWriter._writer.setMaxSize(500 * 1024**2)
 ePixBoard.rawWriter.Open.set(True) 
 rawWriter._writer.open(raw_path)
-
 # Enable the Processed L0 record 
 ePixBoard.L0Writer.DataFile.set(L0_path)
 ePixBoard.L0Writer._writer.setMaxSize(500 * 1024**2)
 ePixBoard.L0Writer.Open.set(True) 
 L0Writer._writer.open(L0_path)
-
 # Enable the Bitmask L1 compressor
 ePixBoard.L1Writer.DataFile.set(L1_path)
 ePixBoard.L1Writer._writer.setMaxSize(5*1024 * 1024**2)
@@ -255,7 +250,7 @@ L1Writer._writer.open(L1_path)
 
 # GUI
 guiTop.addTree(ePixBoard)
-guiTop.resize(1000,800)
+guiTop.resize(1600,1000)
 # Viewer gui
 if START_VIEWER:
    gui = vi.Window(cameraType = 'ePix10ka')
