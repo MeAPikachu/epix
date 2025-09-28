@@ -42,6 +42,7 @@ import ePixFpga as fpga
 import argparse
 
 from L0Process import L0Process
+from L1Process import L1Process
 from L1BitmaskCompressor import L1BitmaskCompressor
 from StreamSampler import StreamSampler
 
@@ -160,8 +161,11 @@ dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
 #pyrogue.streamConnect(pgpVc0, dataWriter.getChannel(0x1))
 l0 = L0Process(dark_path="/data/epix/software/Mossbauer/dark_2D.npy",filter_path="/data/epix/software/Mossbauer/filter.npy",
                n1=8, enable_common_mode=True)
+l1 = L1Process(gain_path="/data/epix/software/Mossbauer/new_gain.npy")
+
 pyrogue.streamConnect(pgpVc0, l0)
-pyrogue.streamConnect(l0, dataWriter.getChannel(0x1))
+pyrogue.streamConnect(l0,l1)
+pyrogue.streamConnect(l1, dataWriter.getChannel(0x1))
 
 # Create the Writer for sampling; 
 rawWriter = pyrogue.utilities.fileio.StreamWriter(name='rawWriter')
