@@ -161,8 +161,11 @@ dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
 #pyrogue.streamConnect(pgpVc0, dataWriter.getChannel(0x1))
 l0 = L0Process(dark_path="/data/epix/software/Mossbauer/dark_2D.npy",filter_path="/data/epix/software/Mossbauer/filter.npy",
                n1=8, enable_common_mode=True)
-l1 = L1Process(gain_path="/data/epix/software/Mossbauer/new_gain.npy")
+#l1 = L1Process(gain_path="/data/epix/software/Mossbauer/new_gain.npy")
+l1 = L1Process(gain_scalar=17)
 
+
+# Main Data Stream
 pyrogue.streamConnect(pgpVc0, l0)
 pyrogue.streamConnect(l0,l1)
 pyrogue.streamConnect(l1, dataWriter.getChannel(0x1))
@@ -171,7 +174,6 @@ pyrogue.streamConnect(l1, dataWriter.getChannel(0x1))
 rawWriter = pyrogue.utilities.fileio.StreamWriter(name='rawWriter')
 L0Writer = pyrogue.utilities.fileio.StreamWriter(name='L0Writer')
 L1Writer= pyrogue.utilities.fileio.StreamWriter(name='L1Writer') 
-
 # Additional Channels for data writing; 
 # Sampler for raw data; 
 sampler = StreamSampler(min_interval=1.0)

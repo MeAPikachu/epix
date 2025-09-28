@@ -26,7 +26,7 @@ class L1Process(rogue.interfaces.stream.Slave,
 		# 预计算系数：coeff = 128 / gain
 		self.coeff = None
 		self.coeff_scalar = None
-		SCALE = np.float32(128.0)
+		SCALE = np.float32(256.0)
 
 		# Calculate the gain
 		if gain_path is not None:
