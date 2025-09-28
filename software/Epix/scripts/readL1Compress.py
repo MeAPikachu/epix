@@ -1,49 +1,57 @@
-import numpy as np
 import struct
-try:
-    from pyrogue.utilities.fileio import FileReader
-except Exception:
-    from pyrogue.utilities.filio import FileReader
+import numpy as np
 
-def iter_l1bm_with_hdr(filename, chan=0x4, ssi_prepend=8):
+E1_FMT = "<4sHHHHII"
+E1_SZ  = struct.calcsize(E1_FMT)  # 20B
+# This script is used to read the L1 Bitmap Compress files; 
+
+def iter_l1bm_frames(path):
     """
-    读取 L1BitmaskCompressor 输出（文件中每帧前置 ssi_prepend=8 字节的 SSI 头）。
-    返回: (orig32, ny, nx, thr, mask2d, vals)
+    Read the compressed frames
     """
-    fr = FileReader(filename)
-    while True:
-        fd = fr.next
-        if fd is None:
-            break
-        if fd.channel != chan:
-            continue
+    with open(path, "rb") as f:
+        while True:
+            ssi = f.read(8)
+            if not ssi: break
+            if len(ssi) < 8: break
 
-        p = fd.data                   # FileReader 已去掉文件层 8B(size/flags/err/chan)
-        base = ssi_prepend            # 这里默认 8B SSI 头
-        if len(p) < base + 32 + 24:
-            continue
+            orig32 = f.read(32)
+            if len(orig32) < 32: break
 
-        orig32 = p[base : base+32]    # 原始 32B 相机头
-        e1off  = base + 32            # E1BM 起始处（40）
-        magic, ny, nx, thr, _rsv, count, mbytes = struct.unpack_from('<4sHHHHII', p, e1off)
-        if magic != b'E1BM':
-            continue
+            e1hdr = f.read(E1_SZ)                 # Read the head 
+            if len(e1hdr) < E1_SZ: break
+            magic, ny, nx, thr, _rsv, count, mbytes = struct.unpack(E1_FMT, e1hdr)
+            if magic != b"E1BM": break
 
-        total = base + 32 + 24 + mbytes + 2*count
-        if len(p) < total:
-            continue
+            _gap4 = f.read(4)                     # Discard the useless information
+            if len(_gap4) < 4: break
 
-        mask_off = e1off + 24
-        mask = np.unpackbits(
-            np.frombuffer(p, dtype=np.uint8, offset=mask_off, count=mbytes),
-            bitorder='big'
-        ).astype(bool)[:ny*nx].reshape(ny, nx)
+            mask_bytes = f.read(mbytes)
+            if len(mask_bytes) < mbytes: break
 
-        vals = np.frombuffer(p, dtype='<u2', offset=mask_off + mbytes, count=count)
-        yield orig32, ny, nx, thr, mask, vals
+            vals_bytes = f.read(count * 2)
+            if len(vals_bytes) < count * 2: break
+
+            mask = np.unpackbits(np.frombuffer(mask_bytes, np.uint8), bitorder="big")
+            mask = mask[:ny*nx].reshape(ny, nx).astype(bool)
+            vals = np.frombuffer(vals_bytes, dtype="<u2", count=count)
+
+            yield ssi, orig32, ny, nx, thr, mask, vals
 
 def reconstruct(ny, nx, mask2d, vals, fill=0):
     img = np.full((ny, nx), fill, dtype=np.uint16)
     if vals.size:
         img[mask2d] = vals
     return img
+
+# Example function
+def read_first(path):
+    it = iter_l1bm_frames(path)
+    try:
+        ssi, orig32, ny, nx, thr, mask, vals = next(it)
+    except StopIteration:
+        print("No frames left")
+        return
+    img = reconstruct(ny, nx, mask, vals, fill=0)
+    print(f"size={ny}x{nx}, thr={thr}, hits={vals.size} ({vals.size/(ny*nx):.1%})")
+    return ssi, orig32, img
