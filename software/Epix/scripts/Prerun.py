@@ -44,7 +44,6 @@ import argparse
 from L0Process import L0Process
 from L1Process import L1Process
 from L2Spectrum import L2Spectrum
-from L2Process import L2Process
 from L1BitmaskCompressor import L1BitmaskCompressor
 from StreamSampler import StreamSampler
 
@@ -140,6 +139,7 @@ START_VIEWER = args.viewer
 PRINT_VERBOSE = args.verbose
 #############################################
 
+
 # Create the PGP interfaces for ePix camera
 if args.simulation:
    pgpVc1 = rogue.interfaces.stream.TcpClient('localhost',8000)
@@ -154,6 +154,7 @@ else:
    print("")
    print("PGP Card Version: %x" % (pgpVc0.getInfo().version))
 
+
 # Add data stream to file as channel 1
 # File writer
 dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
@@ -164,13 +165,12 @@ l0 = L0Process(dark_path="/data/epix/software/Mossbauer/dark_2D.npy",filter_path
 #l1 = L1Process(gain_path="/data/epix/software/Mossbauer/new_gain.npy")
 #l1 = L1Process(gain_scalar=17)
 l1 = L1Process(gain_path="/data/epix/software/Mossbauer/gain.npy")
-l2 = L2Process()
 
 # Main Data Stream
 pyrogue.streamConnect(pgpVc0, l0)
 pyrogue.streamConnect(l0,l1)
-pyrogue.streamConnect(l1,l2)
-pyrogue.streamConnect(l2, dataWriter.getChannel(0x1))
+pyrogue.streamConnect(l1, dataWriter.getChannel(0x1))
+
 
 # Parallel Writing; 
 # Create the Writer for sampling; 
@@ -204,6 +204,7 @@ pyrogue.streamConnect(pgpVc3, dataWriter.getChannel(0x3))
 cmd = rogue.protocols.srp.Cmd()
 pyrogue.streamConnect(cmd, pgpVc0)
 
+
 # Create and Connect SRP to VC1 to send commands
 srp = rogue.protocols.srp.SrpV0()
 pyrogue.streamConnectBiDir(pgpVc1,srp)
@@ -212,8 +213,6 @@ pyrogue.streamConnectBiDir(pgpVc1,srp)
 if (PRINT_VERBOSE): dbgData = rogue.interfaces.stream.Slave()
 if (PRINT_VERBOSE): dbgData.setDebug(60, "DATA[{}]".format(0))
 if (PRINT_VERBOSE): pyrogue.streamTap(pgpVc0, dbgData)
-
-
 
 # Create the automatic data path for the raw data, sample data and the real data; 
 raw_path = Board_utils.make_data_path("/data/raw/")
@@ -253,17 +252,20 @@ ePixBoard.dataWriter.Open.set(True)
 #ePixBoard.rawWriter.Open.set(True) 
 rawWriter._writer.setMaxSize(500 * 1024**2)
 rawWriter._writer.open(raw_path)
+
 # Enable the Processed L0 record 
 #ePixBoard.L0Writer.DataFile.set(L0_path)
 #ePixBoard.L0Writer._writer.setMaxSize(500 * 1024**2)
 #ePixBoard.L0Writer.Open.set(True) 
 L0Writer._writer.setMaxSize(500 * 1024**2)
 L0Writer._writer.open(L0_path)
+
 # Enable the Bitmask L1 compressor
 ePixBoard.L1Writer.DataFile.set(L1_path)
 ePixBoard.L1Writer._writer.setMaxSize(5*1024 * 1024**2)
 ePixBoard.L1Writer.Open.set(True) 
 L1Writer._writer.open(L1_path)
+
 # S2 Writer
 ePixBoard.S2Writer.DataFile.set(S2_path)
 ePixBoard.S2Writer._writer.setMaxSize(500 * 1024**2)

@@ -17,6 +17,7 @@ class L1Process(rogue.interfaces.stream.Slave,
 	def __init__(self,
 				 gain_path=None,        # (176,768) 的 float32/64；像素级优先
 				 gain_scalar=None,      # 备选：标量增益
+				 scale=256, 
 				 clamp_min=0, clamp_max=0xFFFF,
 				 round_mode='nearest'   # 'nearest' | 'floor' | 'ceil' | 'none'
 				 ):
@@ -26,7 +27,7 @@ class L1Process(rogue.interfaces.stream.Slave,
 		# 预计算系数：coeff = 128 / gain
 		self.coeff = None
 		self.coeff_scalar = None
-		SCALE = np.float32(256.0)
+		self.SCALE = scale
 
 		# Calculate the gain
 		if gain_path is not None:
@@ -35,15 +36,15 @@ class L1Process(rogue.interfaces.stream.Slave,
 			if g.size != self.U16_COUNT:
 				raise ValueError(f"gain size {g.size} != {self.U16_COUNT}")
 			g = g.reshape(self.NY, self.NX).astype(np.float32, copy=False)
-			self.coeff = (SCALE / np.maximum(g, 1e-12)).astype(np.float32, copy=False)
+			self.coeff = (self.SCALE / np.maximum(g, 1e-12)).astype(np.float32, copy=False)
 		elif gain_scalar is not None:
 			gs = float(gain_scalar)
 			if not np.isfinite(gs) or gs <= 0:
 				raise ValueError(f"invalid gain_scalar={gain_scalar}")
-			self.coeff_scalar = np.float32(SCALE / gs)
+			self.coeff_scalar = np.float32(self.SCALE / gs)
 		else:
 			# 未给 gain：相当于 /1 * 128
-			self.coeff_scalar = SCALE/17
+			self.coeff_scalar = self.SCALE/17
 
 		# Work buffer
 		self.work_f32 = np.empty((self.NY, self.NX), dtype=np.float32)
