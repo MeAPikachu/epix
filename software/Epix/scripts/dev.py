@@ -247,9 +247,11 @@ ePixBoard.dataWriter._writer.setMaxSize(5*1024 * 1024**2)
 ePixBoard.dataWriter.Open.set(True) 
 
 # Enable the parallel raw record 
-ePixBoard.rawWriter.DataFile.set(raw_path)
-ePixBoard.rawWriter._writer.setMaxSize(500 * 1024**2)
-ePixBoard.rawWriter.Open.set(True) 
+#ePixBoard.rawWriter.DataFile.set(raw_path)
+#ePixBoard.rawWriter._writer.setMaxSize(500 * 1024**2)
+#ePixBoard.rawWriter.Open.set(True) 
+
+rawWriter._writer.setMaxSize(500 * 1024**2)
 rawWriter._writer.open(raw_path)
 # Enable the Processed L0 record 
 ePixBoard.L0Writer.DataFile.set(L0_path)
@@ -262,7 +264,7 @@ ePixBoard.L1Writer._writer.setMaxSize(5*1024 * 1024**2)
 ePixBoard.L1Writer.Open.set(True) 
 L1Writer._writer.open(L1_path)
 # S2 Writer
-ePixBoard.S2Writer.DataFile.set(L1_path)
+ePixBoard.S2Writer.DataFile.set(S2_path)
 ePixBoard.S2Writer._writer.setMaxSize(500 * 1024**2)
 ePixBoard.S2Writer.Open.set(True) 
 S2Writer._writer.open(S2_path)
