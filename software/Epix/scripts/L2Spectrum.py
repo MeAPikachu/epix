@@ -5,24 +5,14 @@ import rogue.interfaces.stream  # 不用别名
 class L2Spectrum(rogue.interfaces.stream.Slave,
                     rogue.interfaces.stream.Master):
     """
-    输入：每帧 [32B 头] + [176*768 u16 小端图像]
-    输出（当帧号满足间隔时才发）：
-        [原始32B头] + [1460 * u32 的光谱计数]   （不加任何自定义头）
-
-    分箱：
-      低段 [0, 20*256)    步长 4     -> 1280 bins
-      高段 [20*256,200*256) 步长 256 -> 180 bins
-      总计 1460 bins
-
-    参数：
-      every_n: 每隔多少帧计算/发送一次（默认 1 = 每帧）
+    Output the spectrum of the 
     """
     HEAD_IN   = 32
     NY, NX    = 176, 768
     NPIX      = NY * NX           # 135,168
     DATA_IN   = NPIX * 2          # 270,336 B
 
-    MAX_VAL   = 200 * 256         # 51200（上限不含）
+    MAX_VAL   = 200 * 256         # 51200
     SPLIT     = 20  * 256         # 5120
     LOW_STEP  = 4
     HIGH_STEP = 256

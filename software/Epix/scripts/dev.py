@@ -174,10 +174,10 @@ pyrogue.streamConnect(l1, dataWriter.getChannel(0x1))
 
 # Parallel Writing; 
 # Create the Writer for sampling; 
-rawWriter = pyrogue.utilities.fileio.StreamWriter(name='rawWriter')
-L0Writer = pyrogue.utilities.fileio.StreamWriter(name='L0Writer')
-L1Writer= pyrogue.utilities.fileio.StreamWriter(name='L1Writer') 
-S2Writer = pyrogue.utilities.fileio.StreamWriter(name='S2Writer')
+rawWriter = pyrogue.utilities.fileio.StreamWriter(name='rawWriter',hidden=True)
+L0Writer = pyrogue.utilities.fileio.StreamWriter(name='L0Writer',hidden=True)
+L1Writer= pyrogue.utilities.fileio.StreamWriter(name='L1Writer',hidden=True) 
+S2Writer = pyrogue.utilities.fileio.StreamWriter(name='S2Writer',hidden=True)
 
 # Additional Channels for data writing; 
 # Sampler for raw data; 
