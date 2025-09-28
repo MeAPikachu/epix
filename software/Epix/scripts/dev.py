@@ -269,7 +269,7 @@ S2Writer._writer.open(S2_path)
 
 # GUI
 guiTop.addTree(ePixBoard)
-guiTop.resize(1600,1000)
+guiTop.resize(500,500)
 # Viewer gui
 if START_VIEWER:
    gui = vi.Window(cameraType = 'ePix10ka')
