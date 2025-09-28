@@ -230,7 +230,7 @@ ePixBoard = EpixBoard(guiTop, cmd, dataWriter, srp, args.asic_rev)
 
 # Add Raw Writer and L0 Writer to the board for sampling;
 #ePixBoard.add(rawWriter)
-ePixBoard.add(L0Writer)
+#ePixBoard.add(L0Writer)
 ePixBoard.add(L1Writer)
 ePixBoard.add(S2Writer)
 ePixBoard.start()
@@ -250,19 +250,22 @@ ePixBoard.dataWriter.Open.set(True)
 #ePixBoard.rawWriter.DataFile.set(raw_path)
 #ePixBoard.rawWriter._writer.setMaxSize(500 * 1024**2)
 #ePixBoard.rawWriter.Open.set(True) 
-
 rawWriter._writer.setMaxSize(500 * 1024**2)
 rawWriter._writer.open(raw_path)
+
 # Enable the Processed L0 record 
-ePixBoard.L0Writer.DataFile.set(L0_path)
-ePixBoard.L0Writer._writer.setMaxSize(500 * 1024**2)
-ePixBoard.L0Writer.Open.set(True) 
+#ePixBoard.L0Writer.DataFile.set(L0_path)
+#ePixBoard.L0Writer._writer.setMaxSize(500 * 1024**2)
+#ePixBoard.L0Writer.Open.set(True) 
+L0Writer._writer.setMaxSize(500 * 1024**2)
 L0Writer._writer.open(L0_path)
+
 # Enable the Bitmask L1 compressor
 ePixBoard.L1Writer.DataFile.set(L1_path)
 ePixBoard.L1Writer._writer.setMaxSize(5*1024 * 1024**2)
 ePixBoard.L1Writer.Open.set(True) 
 L1Writer._writer.open(L1_path)
+
 # S2 Writer
 ePixBoard.S2Writer.DataFile.set(S2_path)
 ePixBoard.S2Writer._writer.setMaxSize(500 * 1024**2)
