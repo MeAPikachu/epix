@@ -46,6 +46,7 @@ from L1Process import L1Process
 from L2Spectrum import L2Spectrum
 from L2Process import L2Process
 from L1BitmaskCompressor import L1BitmaskCompressor
+from L2Para import L2Para
 from StreamSampler import StreamSampler
 
 from Board_utils import EpixBoard,MyRunControl,MbDebug
@@ -178,6 +179,7 @@ rawWriter = pyrogue.utilities.fileio.StreamWriter(name='rawWriter',hidden=True)
 L0Writer = pyrogue.utilities.fileio.StreamWriter(name='L0Writer',hidden=True)
 L1Writer= pyrogue.utilities.fileio.StreamWriter(name='L1Writer',hidden=True) 
 S2Writer = pyrogue.utilities.fileio.StreamWriter(name='S2Writer',hidden=True)
+L2PWriter = pyrogue.utilities.fileio.StreamWriter(name='L2PWriter',hidden=True)
 
 # Additional Channels for data writing; 
 # Sampler for raw data; 
@@ -195,7 +197,12 @@ pyrogue.streamConnect(l1bm, L1Writer.getChannel(0x1))
 # Spectrum
 specTap = L2Spectrum(every_n=10)  # 每10帧输出一次
 pyrogue.streamTap(l1, specTap)                         # 从 L1 旁路
-pyrogue.streamConnect(specTap, S2Writer.getChannel(0x6))
+pyrogue.streamConnect(specTap, S2Writer.getChannel(0x1))
+# L2 Para for 122keV
+L2PTap = L2Para()
+pyrogue.streamTap(l1,L2PTap)
+pyrogue.streamConnect(L2PTap, L2PWriter.getChannel(0x1))
+
 
 # Add pseudoscope to file writer
 pyrogue.streamConnect(pgpVc2, dataWriter.getChannel(0x2))
@@ -221,6 +228,7 @@ data_path = Board_utils.make_data_path("/data/")
 L0_path = Board_utils.make_data_path("/data/L0/")
 L1_path = Board_utils.make_data_path("/data/L1/")
 S2_path = Board_utils.make_data_path("/data/S2/")
+L2P_path = Board_utils.make_data_path("/data/L2P/")
 
 
 # Create Gui
@@ -269,6 +277,9 @@ ePixBoard.S2Writer.DataFile.set(S2_path)
 ePixBoard.S2Writer._writer.setMaxSize(500 * 1024**2)
 ePixBoard.S2Writer.Open.set(True) 
 S2Writer._writer.open(S2_path)
+# L2P Writer 
+L2PWriter._writer.setMaxSize(500*1024**2)
+L2PWriter._writer.open(L2P_path)
 
 # GUI
 guiTop.addTree(ePixBoard)
