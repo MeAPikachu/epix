@@ -177,9 +177,8 @@ begin
          run_sync <= run_meta;
          run_sync_d <= run_sync;
 
-         iRunTrigger <= run_sync;
-         iDaqTrigger <= run_sync_d;
-
+         --iRunTrigger <= run_sync;
+         --iDaqTrigger <= run_sync_d;
       end if;
    end process;
 
@@ -211,9 +210,10 @@ begin
       iInjAcq     when epixConfigExt.dbgReg = "01000" else     -- this is debug pulse to trigger exernal source within ACQ pulse
       '0';
    
+   
    -- Triggers in
-   -- iRunTrigger    <= runTrigger;
-   -- iDaqTrigger    <= daqTrigger;
+   iRunTrigger    <= runTrigger;
+   iDaqTrigger    <= daqTrigger;
    
    -- ASIC signals
    asicR0         <= iAsicR0;
