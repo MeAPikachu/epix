@@ -177,8 +177,8 @@ begin
          run_sync <= run_meta;
          run_sync_d <= run_sync;
 
-         --iRunTrigger <= run_sync;
-         --iDaqTrigger <= run_sync_d;
+         iRunTrigger <= run_sync;
+         iDaqTrigger <= run_sync_d;
       end if;
    end process;
 
@@ -211,10 +211,10 @@ begin
       '0';
    
    
-   
+
    -- Triggers in
-   iRunTrigger    <= runTrigger;
-   iDaqTrigger    <= daqTrigger;
+   --iRunTrigger    <= runTrigger;
+   --iDaqTrigger    <= daqTrigger;
    
    -- ASIC signals
    asicR0         <= iAsicR0;
