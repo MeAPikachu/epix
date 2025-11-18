@@ -95,8 +95,8 @@ parser.add_argument(
     "--yml", 
     type     = str,
     required = False,
-    default  = '../yml/epix10ka_mossbauer_500Hz.yml',
-    help     = "Default yml is the mossbauer 500Hz",
+    default  = '../yml/epix10ka_mossbauer_300Hz.yml',
+    help     = "Default yml is the mossbauer 300Hz",
 )  
 parser.add_argument(
     "--pgp", 
