@@ -21,10 +21,14 @@ def main():
     median_2d = bn.nanmedian(data, axis=0)
     std_map   = bn.nanstd   (data, axis=0)
 
+
+
+    np.save(os.path.join(args.outdir,"dark_2D.npy"),median_2d) 
     np.save(os.path.join(args.outdir, f"{base}_median.npy"), median_2d)
     for thr in (50, 100):
         mask = (std_map < thr).astype(bool)
         np.savez(os.path.join(args.outdir, f"{base}_std_{thr}.npz"), mask=mask, std=std_map)
-
+    np.save(os.path.join(args.outdir,"filter.npy"),(std_map < 50).astype(bool)) 
+    
 if __name__ == "__main__":
     main()
