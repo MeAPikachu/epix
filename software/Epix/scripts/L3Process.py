@@ -6,17 +6,8 @@ import rogue.interfaces.stream  # 不用别名
 class L3StateAggregator(rogue.interfaces.stream.Slave,
 						rogue.interfaces.stream.Master):
 	"""
-	输入（来自 L2Process）：
-	  [32B 原头] + [8448 字节 uint8（4x4 block 计数，0..16）]
-
-	行为：
-	  - 从原头 word3(<u32, offset=12) 取 state：0/1
-	  - state 未变：把 8448 个 u8 计数**饱和**累计到 uint16 累加器
-	  - state 翻转：输出一帧聚合结果（仅 [32B 原头] + [8448×u16]），清零累加器，开始新段
-
-	输出（无 24B 头）：
-	  [32B 原头(取本段第一帧的原头)]
-	  + [8448 × <u2> 累计值，小端]
+    The L3 Process reduces the time resolution, based on the direction
+    of the DAQ input, adds the 
 	"""
 	HEAD_IN  = 32
 	BY, BX   = 44, 192

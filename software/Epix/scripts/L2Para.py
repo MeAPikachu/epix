@@ -5,20 +5,8 @@ import rogue.interfaces.stream  # 不用别名
 class L2Para(rogue.interfaces.stream.Slave,
 						rogue.interfaces.stream.Master):
 	"""
-	输入（每帧）:
-	  [32B 原头] + [176*768 × u16 (LE)]
-
-	处理:
-	  - 对每帧像素，筛选幅值 ∈ [low_bin*scale, high_bin*scale)
-	  - 以 8×8 像素为一块（22×96 共 2112 块），统计每块内命中像素个数 (0..64)
-	  - 连续累计 group_frames 帧（默认 10 帧），得到每块的 uint32 计数和
-
-	输出（每 group_frames 帧输出一次）:
-	  [32B 原头(沿用该组第1帧的原头)] + [2112 × <u4, LE>]
-
-	说明:
-	  - 本模块**不附加任何自定义头**；仅保留 32B 原头并紧跟结果数据。
-	  - 若流末尾有未满 group_frames 的残留，也可调用 flush() 输出。
+  The Parallel L2 Processing is used to get the spatial distribution
+  of the 122keV events, the distribution has worse;
 	"""
 
 	# 输入/几何
@@ -27,7 +15,7 @@ class L2Para(rogue.interfaces.stream.Slave,
 	NPIX      = NY * NX                 # 135,168
 	DATA_IN   = NPIX * 2                # 270,336 B
 
-	# 8x8 分块
+	# 8x8 Blocks
 	BY, BX    = NY // 8, NX // 8        # 22, 96
 	NBLOCK    = BY * BX                 # 2,112
 
@@ -49,7 +37,7 @@ class L2Para(rogue.interfaces.stream.Slave,
 		self._acc_frames = 0
 		self._orig32     = None  # 本组第一帧的 32B 原头
 
-		# 预先算好阈值（可在运行时修改成员变量后重算）
+		# Update the thresholds 
 		self._update_thresholds()
 
 	def _update_thresholds(self):

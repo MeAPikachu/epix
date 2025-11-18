@@ -2,19 +2,14 @@
 
 # L2BlockCounter.py
 import numpy as np
-import rogue.interfaces.stream  # 不用别名
+import rogue.interfaces.stream  
 
 class L2Process(rogue.interfaces.stream.Slave,
                      rogue.interfaces.stream.Master):
     """
-    输入： [32B 头] + [176*768 * u16(LE)]
-    处理： 4x4 分块计数；统计像素值 ∈ [low_bin*scale, high_bin*scale) 的数量
-    输出： [原 32B 头] + [44*192 * i8]   （每块一个计数，范围 0..16）
-
-    参数
-      low_bin:  下限的“bin”，实际阈值 = low_bin * scale（默认 12）
-      high_bin: 上限的“bin”，实际阈值 = high_bin * scale（默认 16）
-      scale:    bin 的步长（默认 256）
+    The Second order processing reduces the spatial resolution that
+    bidding 4*4 pixels together, and then count how many 12-16keV events
+    we have got. 
     """
     HEAD_IN  = 32
     NY, NX   = 176, 768
