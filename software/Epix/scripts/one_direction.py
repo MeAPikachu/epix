@@ -44,7 +44,9 @@ import argparse
 from L0Process import L0Process
 from L1Process import L1Process
 from L2Spectrum import L2Spectrum
+from L2Process import L2Process
 from L1BitmaskCompressor import L1BitmaskCompressor
+from L2Para import L2Para
 from StreamSampler import StreamSampler
 
 from Board_utils import EpixBoard,MyRunControl,MbDebug
@@ -139,7 +141,6 @@ START_VIEWER = args.viewer
 PRINT_VERBOSE = args.verbose
 #############################################
 
-
 # Create the PGP interfaces for ePix camera
 if args.simulation:
    pgpVc1 = rogue.interfaces.stream.TcpClient('localhost',8000)
@@ -154,7 +155,6 @@ else:
    print("")
    print("PGP Card Version: %x" % (pgpVc0.getInfo().version))
 
-
 # Add data stream to file as channel 1
 # File writer
 dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
@@ -165,12 +165,13 @@ l0 = L0Process(dark_path="/data/epix/software/Mossbauer/dark_2D.npy",filter_path
 #l1 = L1Process(gain_path="/data/epix/software/Mossbauer/new_gain.npy")
 #l1 = L1Process(gain_scalar=17)
 l1 = L1Process(gain_path="/data/epix/software/Mossbauer/gain.npy")
+l2 = L2Process()
 
 # Main Data Stream
 pyrogue.streamConnect(pgpVc0, l0)
 pyrogue.streamConnect(l0,l1)
-pyrogue.streamConnect(l1, dataWriter.getChannel(0x1))
-
+pyrogue.streamConnect(l1,l2)
+pyrogue.streamConnect(l2, dataWriter.getChannel(0x1))
 
 # Parallel Writing; 
 # Create the Writer for sampling; 
@@ -178,6 +179,7 @@ rawWriter = pyrogue.utilities.fileio.StreamWriter(name='rawWriter',hidden=True)
 L0Writer = pyrogue.utilities.fileio.StreamWriter(name='L0Writer',hidden=True)
 L1Writer= pyrogue.utilities.fileio.StreamWriter(name='L1Writer',hidden=True) 
 S2Writer = pyrogue.utilities.fileio.StreamWriter(name='S2Writer',hidden=True)
+L2PWriter = pyrogue.utilities.fileio.StreamWriter(name='L2PWriter',hidden=True)
 
 # Additional Channels for data writing; 
 # Sampler for raw data; 
@@ -195,7 +197,12 @@ pyrogue.streamConnect(l1bm, L1Writer.getChannel(0x1))
 # Spectrum
 specTap = L2Spectrum(every_n=10)  # 每10帧输出一次
 pyrogue.streamTap(l1, specTap)                         # 从 L1 旁路
-pyrogue.streamConnect(specTap, S2Writer.getChannel(0x6))
+pyrogue.streamConnect(specTap, S2Writer.getChannel(0x1))
+# L2 Para for 122keV
+L2PTap = L2Para()
+pyrogue.streamTap(l1,L2PTap)
+pyrogue.streamConnect(L2PTap, L2PWriter.getChannel(0x1))
+
 
 # Add pseudoscope to file writer
 pyrogue.streamConnect(pgpVc2, dataWriter.getChannel(0x2))
@@ -203,7 +210,6 @@ pyrogue.streamConnect(pgpVc3, dataWriter.getChannel(0x3))
 # Software
 cmd = rogue.protocols.srp.Cmd()
 pyrogue.streamConnect(cmd, pgpVc0)
-
 
 # Create and Connect SRP to VC1 to send commands
 srp = rogue.protocols.srp.SrpV0()
@@ -214,12 +220,15 @@ if (PRINT_VERBOSE): dbgData = rogue.interfaces.stream.Slave()
 if (PRINT_VERBOSE): dbgData.setDebug(60, "DATA[{}]".format(0))
 if (PRINT_VERBOSE): pyrogue.streamTap(pgpVc0, dbgData)
 
+
+
 # Create the automatic data path for the raw data, sample data and the real data; 
 raw_path = Board_utils.make_data_path("/data/raw/")
 data_path = Board_utils.make_data_path("/data/")
 L0_path = Board_utils.make_data_path("/data/L0/")
 L1_path = Board_utils.make_data_path("/data/L1/")
 S2_path = Board_utils.make_data_path("/data/S2/")
+L2P_path = Board_utils.make_data_path("/data/L2P/")
 
 
 # Create Gui
@@ -252,25 +261,25 @@ ePixBoard.dataWriter.Open.set(True)
 #ePixBoard.rawWriter.Open.set(True) 
 rawWriter._writer.setMaxSize(500 * 1024**2)
 rawWriter._writer.open(raw_path)
-
 # Enable the Processed L0 record 
 #ePixBoard.L0Writer.DataFile.set(L0_path)
 #ePixBoard.L0Writer._writer.setMaxSize(500 * 1024**2)
 #ePixBoard.L0Writer.Open.set(True) 
 L0Writer._writer.setMaxSize(500 * 1024**2)
 L0Writer._writer.open(L0_path)
-
 # Enable the Bitmask L1 compressor
 ePixBoard.L1Writer.DataFile.set(L1_path)
 ePixBoard.L1Writer._writer.setMaxSize(5*1024 * 1024**2)
 ePixBoard.L1Writer.Open.set(True) 
 L1Writer._writer.open(L1_path)
-
 # S2 Writer
 ePixBoard.S2Writer.DataFile.set(S2_path)
 ePixBoard.S2Writer._writer.setMaxSize(500 * 1024**2)
 ePixBoard.S2Writer.Open.set(True) 
 S2Writer._writer.open(S2_path)
+# L2P Writer 
+L2PWriter._writer.setMaxSize(500*1024**2)
+L2PWriter._writer.open(L2P_path)
 
 # GUI
 guiTop.addTree(ePixBoard)
