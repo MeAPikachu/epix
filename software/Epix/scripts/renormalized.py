@@ -165,13 +165,13 @@ l0 = L0Process(dark_path="/data/epix/software/Mossbauer/dark_2D.npy",filter_path
 #l1 = L1Process(gain_path="/data/epix/software/Mossbauer/new_gain.npy")
 #l1 = L1Process(gain_scalar=17)
 l1 = L1Process(gain_path="/data/epix/software/Mossbauer/gain.npy")
-l2 = L2Process()
+#l2 = L2Process()
 
 # Main Data Stream
 pyrogue.streamConnect(pgpVc0, l0)
 pyrogue.streamConnect(l0,l1)
-pyrogue.streamConnect(l1,l2)
-pyrogue.streamConnect(l2, dataWriter.getChannel(0x1))
+#pyrogue.streamConnect(l1,l2)
+pyrogue.streamConnect(l1, dataWriter.getChannel(0x1))
 
 # Parallel Writing; 
 # Create the Writer for sampling; 
