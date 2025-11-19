@@ -36,7 +36,7 @@ import os
 import yaml
 import time
 import sys
-import testBridge
+#import testBridge
 import ePixViewer as vi
 import ePixFpga as fpga
 import argparse
