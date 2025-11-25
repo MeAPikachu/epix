@@ -203,9 +203,9 @@ sampler = StreamSampler(min_interval=1.0)
 pyrogue.streamTap(pgpVc0,sampler)
 pyrogue.streamConnect(sampler,rawWriter.getChannel(0x1))
 # Sampler for L0 data; 
-L0sampler = StreamSampler(min_interval=1.0)
-pyrogue.streamTap(l0,L0sampler)
-pyrogue.streamConnect(L0sampler,rawWriter.getChannel(0x2))
+#L0sampler = StreamSampler(min_interval=1.0)
+#pyrogue.streamTap(l0,L0sampler)
+#pyrogue.streamConnect(L0sampler,rawWriter.getChannel(0x2))
 
 # All information Preserve; 
 l1bm = L1BitmaskCompressor(threshold=50, emit_empty=False)
