@@ -84,7 +84,7 @@ class MbDebug(rogue.interfaces.stream.Slave):
             print(p.decode('utf-8'))
             
             
-def make_data_path(base_dir="/data"):
+def make_data_path(base_dir="/data",base_name='data'):
     ts   = time.strftime("%Y%m%d_%H%M%S")
     os.makedirs(base_dir, exist_ok=True)
-    return os.path.join(base_dir, f"data_{ts}.dat")
+    return os.path.join(base_dir, f"{base_name}_{ts}.dat")

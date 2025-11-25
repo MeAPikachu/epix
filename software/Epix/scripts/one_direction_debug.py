@@ -130,6 +130,7 @@ parser.add_argument(
     default  = 1,
     help     = "ASIC rev 1 or 2",
 )
+
 # Get the arguments
 args = parser.parse_args()
 #############################################
@@ -155,10 +156,7 @@ else:
    print("")
    print("PGP Card Version: %x" % (pgpVc0.getInfo().version))
 
-# Add data stream to file as channel 1
-# File writer
-dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
-
+# Data Processing; 
 #pyrogue.streamConnect(pgpVc0, dataWriter.getChannel(0x1))
 l0 = L0Process(dark_path="/data/epix/software/Mossbauer/dark_2D.npy",filter_path="/data/epix/software/Mossbauer/filter.npy",
                n1=8, enable_common_mode=True)
@@ -167,21 +165,39 @@ l0 = L0Process(dark_path="/data/epix/software/Mossbauer/dark_2D.npy",filter_path
 l1 = L1Process(gain_path="/data/epix/software/Mossbauer/gain.npy")
 l2 = L2Process()
 
-# Main Data Stream
+# Main Data Stream Processing; 
 pyrogue.streamConnect(pgpVc0, l0)
 pyrogue.streamConnect(l0,l1)
 pyrogue.streamTap(l1,l2)
 pyrogue.streamConnect(l2, dataWriter.getChannel(0x1))
 
+
+
+
+# File writer
+# Main DataStream; 
+dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
 # Parallel Writing; 
 # Create the Writer for sampling; 
 rawWriter = pyrogue.utilities.fileio.StreamWriter(name='rawWriter',hidden=True)
-#L0Writer = pyrogue.utilities.fileio.StreamWriter(name='L0Writer',hidden=True)
+    #L0Writer = pyrogue.utilities.fileio.StreamWriter(name='L0Writer',hidden=True)
+# All information Backup; 
 L1Writer= pyrogue.utilities.fileio.StreamWriter(name='L1Writer',hidden=True) 
+# Stream Writer; 
 S2Writer = pyrogue.utilities.fileio.StreamWriter(name='S2Writer',hidden=True)
-L2PWriter = pyrogue.utilities.fileio.StreamWriter(name='L2PWriter',hidden=True)
+    #L2PWriter = pyrogue.utilities.fileio.StreamWriter(name='L2PWriter',hidden=True)
 
-# Additional Channels for data writing; 
+# Create the automatic data path for the raw data, sample data and the real data; 
+raw_path = Board_utils.make_data_path(base_dir="/home/data/raw/",base_name='raw')
+data_path = Board_utils.make_data_path(base_dir="/home/data/",base_name='data')
+    #L0_path = Board_utils.make_data_path("/home/data/L0/")
+L1_path = Board_utils.make_data_path(base_dir="/home/data/L1/",base_name='L1')
+S2_path = Board_utils.make_data_path(base_dir="/home/data/S2/",base_name='spectrum')
+    #L2P_path = Board_utils.make_data_path("/home/data/L2P/")
+
+
+# Additional Tap Channels for data writing; 
+# Data Sampling;
 # Sampler for raw data; 
 sampler = StreamSampler(min_interval=1.0)
 pyrogue.streamTap(pgpVc0,sampler)
@@ -200,16 +216,16 @@ pyrogue.streamConnect(l1bm, L1Writer.getChannel(0x1))
 specTap = L2Spectrum(every_n=10)  # 每10帧输出一次
 pyrogue.streamTap(l1, specTap)                         # 从 L1 旁路
 pyrogue.streamConnect(specTap, S2Writer.getChannel(0x1))
-
 # L2 Para for 122keV
-#L2PTap = L2Para()
-#pyrogue.streamTap(l1,L2PTap)
-#pyrogue.streamConnect(L2PTap, L2PWriter.getChannel(0x1))
+L2PTap = L2Para()
+pyrogue.streamTap(l1,L2PTap)
+pyrogue.streamConnect(L2PTap, S2Writer.getChannel(0x2))
 
 
 # Add pseudoscope to file writer
 #pyrogue.streamConnect(pgpVc2, dataWriter.getChannel(0x2))
 #pyrogue.streamConnect(pgpVc3, dataWriter.getChannel(0x3))
+
 # Software
 cmd = rogue.protocols.srp.Cmd()
 pyrogue.streamConnect(cmd, pgpVc0)
@@ -222,16 +238,6 @@ pyrogue.streamConnectBiDir(pgpVc1,srp)
 if (PRINT_VERBOSE): dbgData = rogue.interfaces.stream.Slave()
 if (PRINT_VERBOSE): dbgData.setDebug(60, "DATA[{}]".format(0))
 if (PRINT_VERBOSE): pyrogue.streamTap(pgpVc0, dbgData)
-
-
-
-# Create the automatic data path for the raw data, sample data and the real data; 
-raw_path = Board_utils.make_data_path("/home/data/raw/")
-data_path = Board_utils.make_data_path("/home/data/")
-L0_path = Board_utils.make_data_path("/home/data/L0/")
-L1_path = Board_utils.make_data_path("/home/data/L1/")
-S2_path = Board_utils.make_data_path("/home/data/S2/")
-L2P_path = Board_utils.make_data_path("/home/data/L2P/")
 
 
 # Create Gui
@@ -267,7 +273,6 @@ ePixBoard.rawWriter._writer.setMaxSize(500 * 1024**2)
 ePixBoard.rawWriter.Open.set(True) 
 #rawWriter._writer.setMaxSize(500 * 1024**2)
 rawWriter._writer.open(raw_path)
-
 # The sampled L0 writer is now disabled; 
 # Enable the Processed L0 record 
 #ePixBoard.L0Writer.DataFile.set(L0_path)
@@ -283,11 +288,10 @@ ePixBoard.L1Writer.Open.set(True)
 L1Writer._writer.open(L1_path)
 
 # S2 Writer
-#ePixBoard.S2Writer.DataFile.set(S2_path)
-#ePixBoard.S2Writer._writer.setMaxSize(500 * 1024**2)
-#ePixBoard.S2Writer.Open.set(True) 
-#S2Writer._writer.open(S2_path)
-
+ePixBoard.S2Writer.DataFile.set(S2_path)
+ePixBoard.S2Writer._writer.setMaxSize(500 * 1024**2)
+ePixBoard.S2Writer.Open.set(True) 
+S2Writer._writer.open(S2_path)
 # L2P Writer 
 #ePixBoard.L2PWriter.DataFile.set(L2P_path)
 #ePixBoard.L2PWriter._writer.setMaxSize(500 * 1024**2)
