@@ -165,6 +165,9 @@ l0 = L0Process(dark_path="/data/epix/software/Mossbauer/dark_2D.npy",filter_path
 l1 = L1Process(gain_path="/data/epix/software/Mossbauer/gain.npy")
 l2 = L2Process()
 
+# Main DataStream; 
+dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
+
 # Main Data Stream Processing; 
 pyrogue.streamConnect(pgpVc0, l0)
 pyrogue.streamConnect(l0,l1)
@@ -174,9 +177,6 @@ pyrogue.streamConnect(l2, dataWriter.getChannel(0x1))
 
 
 
-# File writer
-# Main DataStream; 
-dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
 # Parallel Writing; 
 # Create the Writer for sampling; 
 rawWriter = pyrogue.utilities.fileio.StreamWriter(name='rawWriter',hidden=True)
