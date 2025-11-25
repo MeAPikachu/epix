@@ -252,7 +252,7 @@ ePixBoard = EpixBoard(guiTop, cmd, dataWriter, srp, args.asic_rev)
 ePixBoard.add(rawWriter)
 #ePixBoard.add(L0Writer)
 ePixBoard.add(L1Writer)
-ePixBoard.add(S2Writer)
+#ePixBoard.add(S2Writer)
 #ePixBoard.add(L2PWriter)
 ePixBoard.start()
 
@@ -288,10 +288,10 @@ ePixBoard.L1Writer.Open.set(True)
 L1Writer._writer.open(L1_path)
 
 # S2 Writer
-ePixBoard.S2Writer.DataFile.set(S2_path)
-ePixBoard.S2Writer._writer.setMaxSize(500 * 1024**2)
-ePixBoard.S2Writer.Open.set(True) 
-S2Writer._writer.open(S2_path)
+#ePixBoard.S2Writer.DataFile.set(S2_path)
+#ePixBoard.S2Writer._writer.setMaxSize(500 * 1024**2)
+#ePixBoard.S2Writer.Open.set(True) 
+#S2Writer._writer.open(S2_path)
 # L2P Writer 
 #ePixBoard.L2PWriter.DataFile.set(L2P_path)
 #ePixBoard.L2PWriter._writer.setMaxSize(500 * 1024**2)
