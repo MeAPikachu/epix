@@ -184,7 +184,7 @@ rawWriter = pyrogue.utilities.fileio.StreamWriter(name='rawWriter',hidden=True)
 # All information Backup; 
 L1Writer= pyrogue.utilities.fileio.StreamWriter(name='L1Writer',hidden=True) 
 # Stream Writer; 
-S2Writer = pyrogue.utilities.fileio.StreamWriter(name='S2Writer',hidden=True)
+#S2Writer = pyrogue.utilities.fileio.StreamWriter(name='S2Writer',hidden=True)
     #L2PWriter = pyrogue.utilities.fileio.StreamWriter(name='L2PWriter',hidden=True)
 
 # Create the automatic data path for the raw data, sample data and the real data; 
@@ -192,7 +192,7 @@ raw_path = Board_utils.make_data_path(base_dir="/home/data/raw/",base_name='raw'
 data_path = Board_utils.make_data_path(base_dir="/home/data/",base_name='data')
     #L0_path = Board_utils.make_data_path("/home/data/L0/")
 L1_path = Board_utils.make_data_path(base_dir="/home/data/L1/",base_name='L1')
-S2_path = Board_utils.make_data_path(base_dir="/home/data/S2/",base_name='spectrum')
+#S2_path = Board_utils.make_data_path(base_dir="/home/data/S2/",base_name='spectrum')
     #L2P_path = Board_utils.make_data_path("/home/data/L2P/")
 
 
