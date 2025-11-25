@@ -213,13 +213,13 @@ pyrogue.streamTap(l0, l1bm)
 pyrogue.streamConnect(l1bm, L1Writer.getChannel(0x1))
 
 # Spectrum
-specTap = L2Spectrum(every_n=10)  # 每10帧输出一次
-pyrogue.streamTap(l1, specTap)                         # 从 L1 旁路
-pyrogue.streamConnect(specTap, rawWriter.getChannel(0x3))
+#specTap = L2Spectrum(every_n=10)  # 每10帧输出一次
+#pyrogue.streamTap(l1, specTap)                         # 从 L1 旁路
+#pyrogue.streamConnect(specTap, rawWriter.getChannel(0x3))
 # L2 Para for 122keV
-L2PTap = L2Para()
-pyrogue.streamTap(l1,L2PTap)
-pyrogue.streamConnect(L2PTap, rawWriter.getChannel(0x4))
+#L2PTap = L2Para()
+#pyrogue.streamTap(l1,L2PTap)
+#pyrogue.streamConnect(L2PTap, rawWriter.getChannel(0x4))
 
 
 # Add pseudoscope to file writer
