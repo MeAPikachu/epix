@@ -48,7 +48,6 @@ from L2Process import L2Process
 from L1BitmaskCompressor import L1BitmaskCompressor
 from L2Para import L2Para
 from StreamSampler import StreamSampler
-from L3Process import L3Process
 
 from Board_utils import EpixBoard,MyRunControl,MbDebug
 import Board_utils 
@@ -100,8 +99,8 @@ parser.add_argument(
     "--yml", 
     type     = str,
     required = False,
-    default  = '../yml/epix10ka_mossbauer_500Hz.yml',
-    help     = "Default yml is the mossbauer 500Hz",
+    default  = '../yml/epix10ka_mossbauer_auto.yml',
+    help     = "Default yml is the mossbauer auto",
 )  
 parser.add_argument(
     "--pgp", 
@@ -167,19 +166,17 @@ l0 = L0Process(dark_path="/data/epix/software/Mossbauer/dark_2D.npy",filter_path
 #l1 = L1Process(gain_scalar=17)
 l1 = L1Process(gain_path="/data/epix/software/Mossbauer/gain.npy")
 l2 = L2Process()
-l3 = L3Process()
 
 # Main Data Stream
 pyrogue.streamConnect(pgpVc0, l0)
 pyrogue.streamConnect(l0,l1)
-pyrogue.streamConnect(l1,l2)
-pyrogue.streamConnect(l2,l3)
-pyrogue.streamConnect(l3, dataWriter.getChannel(0x1))
+pyrogue.streamTap(l1,l2)
+pyrogue.streamConnect(l2, dataWriter.getChannel(0x1))
 
 # Parallel Writing; 
 # Create the Writer for sampling; 
 rawWriter = pyrogue.utilities.fileio.StreamWriter(name='rawWriter',hidden=True)
-L0Writer = pyrogue.utilities.fileio.StreamWriter(name='L0Writer',hidden=True)
+#L0Writer = pyrogue.utilities.fileio.StreamWriter(name='L0Writer',hidden=True)
 L1Writer= pyrogue.utilities.fileio.StreamWriter(name='L1Writer',hidden=True) 
 S2Writer = pyrogue.utilities.fileio.StreamWriter(name='S2Writer',hidden=True)
 L2PWriter = pyrogue.utilities.fileio.StreamWriter(name='L2PWriter',hidden=True)
@@ -192,24 +189,27 @@ pyrogue.streamConnect(sampler,rawWriter.getChannel(0x1))
 # Sampler for L0 data; 
 L0sampler = StreamSampler(min_interval=1.0)
 pyrogue.streamTap(l0,L0sampler)
-pyrogue.streamConnect(L0sampler,L0Writer.getChannel(0x1))
+pyrogue.streamConnect(L0sampler,raw.getChannel(0x2))
+
 # All information Preserve; 
 l1bm = L1BitmaskCompressor(threshold=50, emit_empty=False)
 pyrogue.streamTap(l0, l1bm)
 pyrogue.streamConnect(l1bm, L1Writer.getChannel(0x1))
+
 # Spectrum
 specTap = L2Spectrum(every_n=10)  # 每10帧输出一次
 pyrogue.streamTap(l1, specTap)                         # 从 L1 旁路
 pyrogue.streamConnect(specTap, S2Writer.getChannel(0x1))
+
 # L2 Para for 122keV
-L2PTap = L2Para()
-pyrogue.streamTap(l1,L2PTap)
-pyrogue.streamConnect(L2PTap, L2PWriter.getChannel(0x1))
+#L2PTap = L2Para()
+#pyrogue.streamTap(l1,L2PTap)
+#pyrogue.streamConnect(L2PTap, L2PWriter.getChannel(0x1))
 
 
 # Add pseudoscope to file writer
-pyrogue.streamConnect(pgpVc2, dataWriter.getChannel(0x2))
-pyrogue.streamConnect(pgpVc3, dataWriter.getChannel(0x3))
+#pyrogue.streamConnect(pgpVc2, dataWriter.getChannel(0x2))
+#pyrogue.streamConnect(pgpVc3, dataWriter.getChannel(0x3))
 # Software
 cmd = rogue.protocols.srp.Cmd()
 pyrogue.streamConnect(cmd, pgpVc0)
@@ -226,12 +226,12 @@ if (PRINT_VERBOSE): pyrogue.streamTap(pgpVc0, dbgData)
 
 
 # Create the automatic data path for the raw data, sample data and the real data; 
-raw_path = Board_utils.make_data_path("/data/raw/")
-data_path = Board_utils.make_data_path("/data/")
-L0_path = Board_utils.make_data_path("/data/L0/")
-L1_path = Board_utils.make_data_path("/data/L1/")
-S2_path = Board_utils.make_data_path("/data/S2/")
-L2P_path = Board_utils.make_data_path("/data/L2P/")
+raw_path = Board_utils.make_data_path("/home/data/raw/")
+data_path = Board_utils.make_data_path("/home/data/")
+L0_path = Board_utils.make_data_path("/home/data/L0/")
+L1_path = Board_utils.make_data_path("/home/data/L1/")
+S2_path = Board_utils.make_data_path("/home/data/S2/")
+L2P_path = Board_utils.make_data_path("/home/data/L2P/")
 
 
 # Create Gui
@@ -243,8 +243,11 @@ ePixBoard = EpixBoard(guiTop, cmd, dataWriter, srp, args.asic_rev)
 # Add Raw Writer and L0 Writer to the board for sampling;
 #ePixBoard.add(rawWriter)
 #ePixBoard.add(L0Writer)
+ePixBoard.add(rawWriter)
+ePixBoard.add(L0Writer)
 ePixBoard.add(L1Writer)
 ePixBoard.add(S2Writer)
+#ePixBoard.add(L2PWriter)
 ePixBoard.start()
 
 # Load the mossbauer yaml file; 
@@ -259,30 +262,37 @@ ePixBoard.dataWriter._writer.setMaxSize(5*1024 * 1024**2)
 ePixBoard.dataWriter.Open.set(True) 
 
 # Enable the parallel raw record 
-#ePixBoard.rawWriter.DataFile.set(raw_path)
-#ePixBoard.rawWriter._writer.setMaxSize(500 * 1024**2)
-#ePixBoard.rawWriter.Open.set(True) 
-rawWriter._writer.setMaxSize(500 * 1024**2)
+ePixBoard.rawWriter.DataFile.set(raw_path)
+ePixBoard.rawWriter._writer.setMaxSize(500 * 1024**2)
+ePixBoard.rawWriter.Open.set(True) 
+#rawWriter._writer.setMaxSize(500 * 1024**2)
 rawWriter._writer.open(raw_path)
+
+# The sampled L0 writer is now disabled; 
 # Enable the Processed L0 record 
 #ePixBoard.L0Writer.DataFile.set(L0_path)
 #ePixBoard.L0Writer._writer.setMaxSize(500 * 1024**2)
 #ePixBoard.L0Writer.Open.set(True) 
-L0Writer._writer.setMaxSize(500 * 1024**2)
-L0Writer._writer.open(L0_path)
+#L0Writer._writer.setMaxSize(500 * 1024**2)
+#L0Writer._writer.open(L0_path)
+
 # Enable the Bitmask L1 compressor
 ePixBoard.L1Writer.DataFile.set(L1_path)
 ePixBoard.L1Writer._writer.setMaxSize(5*1024 * 1024**2)
 ePixBoard.L1Writer.Open.set(True) 
 L1Writer._writer.open(L1_path)
+
 # S2 Writer
-ePixBoard.S2Writer.DataFile.set(S2_path)
-ePixBoard.S2Writer._writer.setMaxSize(500 * 1024**2)
-ePixBoard.S2Writer.Open.set(True) 
-S2Writer._writer.open(S2_path)
+#ePixBoard.S2Writer.DataFile.set(S2_path)
+#ePixBoard.S2Writer._writer.setMaxSize(500 * 1024**2)
+#ePixBoard.S2Writer.Open.set(True) 
+#S2Writer._writer.open(S2_path)
+
 # L2P Writer 
-L2PWriter._writer.setMaxSize(500*1024**2)
-L2PWriter._writer.open(L2P_path)
+#ePixBoard.L2PWriter.DataFile.set(L2P_path)
+#ePixBoard.L2PWriter._writer.setMaxSize(500 * 1024**2)
+#ePixBoard.L2PWriter.Open.set(True) 
+#L2PWriter._writer.open(L2P_path)
 
 # GUI
 guiTop.addTree(ePixBoard)
@@ -294,8 +304,8 @@ if START_VIEWER:
    #gui.eventReaderImage.VIEW_DATA_CHANNEL_ID = 0
    gui.setReadDelay(0)
    pyrogue.streamTap(l0, gui.eventReader) 
-   pyrogue.streamTap(pgpVc2, gui.eventReaderScope)# PseudoScope
-   pyrogue.streamTap(pgpVc3, gui.eventReaderMonitoring) # Slow Monitoring
+   #pyrogue.streamTap(pgpVc2, gui.eventReaderScope)# PseudoScope
+   #pyrogue.streamTap(pgpVc3, gui.eventReaderMonitoring) # Slow Monitoring
 
 
 # Run gui

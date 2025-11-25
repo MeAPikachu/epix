@@ -3,7 +3,7 @@ import numpy as np
 import struct
 import rogue.interfaces.stream  # 不用别名
 
-class L3StateAggregator(rogue.interfaces.stream.Slave,
+class L3Process(rogue.interfaces.stream.Slave,
 						rogue.interfaces.stream.Master):
 	"""
     The L3 Process reduces the time resolution, based on the direction
@@ -29,7 +29,6 @@ class L3StateAggregator(rogue.interfaces.stream.Slave,
 		return 0 if w3 == 0 else 1
 
 	def _emit_segment(self):
-		"""输出当前段；无段或空段则不输出。"""
 		if self._state is None or self._frames_acc == 0:
 			return
 
@@ -47,7 +46,7 @@ class L3StateAggregator(rogue.interfaces.stream.Slave,
 		f.write(out_buf, 0)
 		self._sendFrame(f)
 
-		# 清零，准备下一段
+
 		self._acc.fill(0)
 		self._frames_acc = 0
 		self._orig32_seg = None
@@ -56,7 +55,7 @@ class L3StateAggregator(rogue.interfaces.stream.Slave,
 		size = frame.getPayload()
 		min_len = self.HEAD_IN + self.BLK_CNT  # 32 + 8448（L2 输出为 u8）
 		if size < min_len:
-			return  # 丢弃非完整帧
+			return  
 
 		buf = bytearray(size)
 		frame.read(buf, 0)
@@ -64,17 +63,14 @@ class L3StateAggregator(rogue.interfaces.stream.Slave,
 		orig32 = bytes(buf[:self.HEAD_IN])
 		st = self._state_from_word3(orig32)
 
-		# 初始化或检测翻转
 		if self._state is None:
 			self._state = st
 			self._orig32_seg = orig32
 		elif st != self._state:
-			# 状态翻转：先吐出上一段，再开始新段
 			self._emit_segment()
 			self._state = st
 			self._orig32_seg = orig32
 
-		# 累计（u8 -> u16，饱和到 65535）
 		vals_u8 = np.frombuffer(buf, dtype=np.uint8,
 								offset=self.HEAD_IN, count=self.BLK_CNT)
 		tmp32 = self._acc.astype(np.uint32) + vals_u8.astype(np.uint32)
@@ -84,5 +80,5 @@ class L3StateAggregator(rogue.interfaces.stream.Slave,
 		self._frames_acc += 1
 
 	def flush(self):
-		"""在停止/退出前调用，输出最后一段。"""
+		
 		self._emit_segment()
