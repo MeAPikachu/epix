@@ -2,6 +2,8 @@
 import numpy as np
 import struct
 import rogue.interfaces.stream  # 不用别名
+import time
+
 
 class L3Process(rogue.interfaces.stream.Slave,
 						rogue.interfaces.stream.Master):
