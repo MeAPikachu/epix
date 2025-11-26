@@ -25,7 +25,7 @@ class L3Process(rogue.interfaces.stream.Slave,
 	@staticmethod
 	def _state_from_word3(orig32: bytes) -> int:
 		# word3 小端 u32
-		w3 = struct.unpack_from('<I', orig32, 12)[0]
+		w3 = struct.unpack_from('<I', orig32, 16)[0]
 		return 0 if w3 == 0 else 1
 
 	def _emit_segment(self):
