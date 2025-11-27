@@ -8,8 +8,8 @@ import time
 class L3Process(rogue.interfaces.stream.Slave,
 						rogue.interfaces.stream.Master):
 	"""
-    The L3 Process reduces the time resolution, based on the direction
-    of the DAQ input, adds the 
+	The L3 Process reduces the time resolution, based on the direction
+	of the DAQ input, adds the 
 	"""
 	HEAD_IN  = 32
 	BY, BX   = 44, 192
@@ -37,9 +37,15 @@ class L3Process(rogue.interfaces.stream.Slave,
 		out_len = self.HEAD_IN + self.BLK_CNT * 2
 		out_buf = bytearray(out_len)
 
-		# 32B 原头（保持原样；如需写入 frames_acc 可在此覆盖某字）
+		
 		out_buf[:self.HEAD_IN] = self._orig32_seg
-
+		
+		
+		struct.pack_into('<I', out_buf, 24, int(self._frames_acc))
+		ts_ms = int(time.time() * 1000)
+		struct.pack_into('<I', out_buf, 28, ts_ms & 0xFFFFFFFF)
+		
+		
 		# 8448×u16 小端
 		mv = memoryview(out_buf)
 		np.frombuffer(mv[self.HEAD_IN:], dtype='<u2', count=self.BLK_CNT)[:] = self._acc

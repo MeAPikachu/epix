@@ -193,15 +193,15 @@ pyrogue.streamConnect(sampler,rawWriter.getChannel(0x1))
 L0sampler = StreamSampler(min_interval=1.0)
 pyrogue.streamTap(l0,L0sampler)
 pyrogue.streamConnect(L0sampler,L0Writer.getChannel(0x1))
-# All information Preserve; 
+# All information Preserve; L1; 
 l1bm = L1BitmaskCompressor(threshold=50, emit_empty=False)
 pyrogue.streamTap(l0, l1bm)
 pyrogue.streamConnect(l1bm, L1Writer.getChannel(0x1))
-# Spectrum
+# S2, Spectrum
 specTap = L2Spectrum(every_n=10)  # 每10帧输出一次
 pyrogue.streamTap(l1, specTap)                         # 从 L1 旁路
 pyrogue.streamConnect(specTap, S2Writer.getChannel(0x1))
-# L2 Para for 122keV
+# L2 Para for 122keV, each frame; 
 L2PTap = L2Para()
 pyrogue.streamTap(l1,L2PTap)
 pyrogue.streamConnect(L2PTap, L2PWriter.getChannel(0x1))
@@ -275,7 +275,7 @@ ePixBoard.L1Writer.DataFile.set(L1_path)
 ePixBoard.L1Writer._writer.setMaxSize(5*1024 * 1024**2)
 ePixBoard.L1Writer.Open.set(True) 
 L1Writer._writer.open(L1_path)
-# S2 Writer
+# S2 Writer, The Spectrum of 
 ePixBoard.S2Writer.DataFile.set(S2_path)
 ePixBoard.S2Writer._writer.setMaxSize(500 * 1024**2)
 ePixBoard.S2Writer.Open.set(True) 
