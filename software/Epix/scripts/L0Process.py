@@ -128,7 +128,7 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
       np.clip(self.work_i32, self.clamp_min, self.clamp_max, out=self.work_i32)
       arr_u2[:, :] = self.work_i32.astype(np.uint16, copy=False)
 
-      ts_ms = int(time.time() * 1000)
+      ts_ms = int(time.time() )
       struct.pack_into('<I', buf, 28, ts_ms & 0xFFFFFFFF)
 
       # Send the frames
