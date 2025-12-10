@@ -4,10 +4,6 @@ import rogue.interfaces.stream  # 不用别名
 
 class L1Process(rogue.interfaces.stream.Slave,
 			 rogue.interfaces.stream.Master):
-	"""
-	L1：把 L0 输出逐像素做 (value / gain) * 128 ，四舍五入量化回 <u2>。
-	为省计算：预先合并为 coeff = 128 / gain（像素级或标量），帧内只乘一次。
-	"""
 
 	HEAD_LEN  = 32                 # 若头是 40，请改成 40
 	NY, NX    = 176, 768
@@ -24,7 +20,7 @@ class L1Process(rogue.interfaces.stream.Slave,
 		rogue.interfaces.stream.Slave.__init__(self)
 		rogue.interfaces.stream.Master.__init__(self)
 
-		# 预计算系数：coeff = 128 / gain
+		
 		self.coeff = None
 		self.coeff_scalar = None
 		self.SCALE = scale

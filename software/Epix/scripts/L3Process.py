@@ -42,8 +42,8 @@ class L3Process(rogue.interfaces.stream.Slave,
 		
 		
 		struct.pack_into('<I', out_buf, 24, int(self._frames_acc))
-		ts_ms = int(time.time() * 1000)
-		struct.pack_into('<I', out_buf, 28, ts_ms & 0xFFFFFFFF)
+		#ts_ms = int(time.time() * 1000)
+		#struct.pack_into('<I', out_buf, 28, ts_ms & 0xFFFFFFFF)
 		
 		
 		# 8448×u16 小端

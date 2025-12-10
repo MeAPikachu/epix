@@ -1,5 +1,7 @@
 import numpy as np
 import rogue.interfaces.stream  
+import time
+import struct
 
 class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
    """
@@ -125,6 +127,9 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
       # Clip
       np.clip(self.work_i32, self.clamp_min, self.clamp_max, out=self.work_i32)
       arr_u2[:, :] = self.work_i32.astype(np.uint16, copy=False)
+
+      ts_ms = int(time.time() * 1000)
+      struct.pack_into('<I', buf, 28, ts_ms & 0xFFFFFFFF)
 
       # Send the frames
       out = self._reqFrame(size, True)
