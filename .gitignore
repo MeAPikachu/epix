@@ -34,3 +34,14 @@ build*
 *.gz
 *.ltx
 *.hdf
+
+# The pictures from the data analysis  ;
+*.png 
+*.jpg 
+*.gif 
+
+
+
+# The useless compression files also ; 
+*.zip 
+*.7z 
