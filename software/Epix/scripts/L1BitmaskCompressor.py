@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import rogue.interfaces.stream
 
+
 class L1BitmaskCompressor(rogue.interfaces.stream.Slave,
                           rogue.interfaces.stream.Master):
 
@@ -32,6 +33,8 @@ class L1BitmaskCompressor(rogue.interfaces.stream.Slave,
 
         self._out_q = queue.Queue()
         self._sender_stop = threading.Event()
+        self._stop = threading.Event()  # global gate for shutdown
+
         self._sender_th = threading.Thread(target=self._sender_loop, daemon=True)
         self._sender_th.start()
 
@@ -39,27 +42,51 @@ class L1BitmaskCompressor(rogue.interfaces.stream.Slave,
         self._seq_lock = threading.Lock()
 
     def _acceptFrame(self, frame):
+        # Gate immediately if stopping
+        if self._stop.is_set() or self._sender_stop.is_set():
+            return
+
         size = frame.getPayload()
         if size < self.HEAD_IN + self.DATA_IN:
             return
+
+        # In-flight gate
         if self.drop_if_busy:
             if not self._sem.acquire(blocking=False):
                 return
         else:
             self._sem.acquire()
 
+        # stop could be set while waiting for semaphore
+        if self._stop.is_set() or self._sender_stop.is_set():
+            self._sem.release()
+            return
+
         buf = bytearray(size)
         frame.read(buf, 0)
+
+        # NOTE: keep bytes immutable for frombuffer safety
         b = bytes(buf)
 
         with self._seq_lock:
             seq = self._seq
             self._seq += 1
 
-        fut = self._pool.submit(self._compress_one, b, seq)
+        # Submit heavy work; handle shutdown race gracefully
+        try:
+            fut = self._pool.submit(self._compress_one, b, seq)
+        except RuntimeError:
+            # "cannot schedule new futures after shutdown"
+            self._sem.release()
+            return
+
         fut.add_done_callback(self._on_done)
 
     def _compress_one(self, b: bytes, seq: int):
+        # If stopping, short-circuit (still returns a tuple)
+        if self._stop.is_set() or self._sender_stop.is_set():
+            return (seq, None)
+
         orig32 = b[:self.HEAD_IN]
         img = np.frombuffer(b, dtype="<u2", count=self.NPIX, offset=self.HEAD_IN).reshape(self.NY, self.NX)
 
@@ -86,11 +113,18 @@ class L1BitmaskCompressor(rogue.interfaces.stream.Slave,
         return (seq, out)
 
     def _on_done(self, fut):
+        # Always enqueue a result or release the semaphore here on failure,
+        # so we never leak in-flight tokens.
         try:
             seq, out = fut.result()
         except Exception:
             self._sem.release()
             return
+
+        # If we're stopping, don't let the sender wait for gaps forever:
+        # still enqueue (seq, None) so ordering can advance.
+        if self._stop.is_set() or self._sender_stop.is_set():
+            out = None
 
         self._out_q.put((seq, out))
 
@@ -110,19 +144,45 @@ class L1BitmaskCompressor(rogue.interfaces.stream.Slave,
                 out_bytes = pending.pop(next_seq)
                 next_seq += 1
 
-                
                 if out_bytes is not None:
                     fr = self._reqFrame(len(out_bytes), True)
                     fr.write(out_bytes, 0)
                     self._sendFrame(fr)
 
+                # Release one in-flight token per completed sequence
                 self._sem.release()
 
+        # Drain remaining pending items on stop to avoid leaking sem tokens
+        # (best-effort: release for any buffered completions)
+        try:
+            while True:
+                seq, out = self._out_q.get_nowait()
+                pending[seq] = out
+        except queue.Empty:
+            pass
+
+        # Release any remaining items we've already received
+        while next_seq in pending:
+            pending.pop(next_seq, None)
+            next_seq += 1
+            self._sem.release()
+
     def stop(self):
+        # Gate first: prevents new submissions immediately
+        self._stop.set()
         self._sender_stop.set()
+
         if self._sender_th.is_alive():
             self._sender_th.join(timeout=1.0)
-        self._pool.shutdown(wait=False)
+
+        # Shutdown executor last; any late _acceptFrame submit will be caught
+        try:
+            self._pool.shutdown(wait=False, cancel_futures=True)
+        except TypeError:
+            # Python < 3.9: no cancel_futures
+            self._pool.shutdown(wait=False)
+        except Exception:
+            pass
 
     def __del__(self):
         try:
