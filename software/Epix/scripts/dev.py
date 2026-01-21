@@ -41,6 +41,10 @@ import ePixViewer as vi
 import ePixFpga as fpga
 import argparse
 
+import rogue.interfaces.stream
+import time
+import multiprocessing as mp
+
 from L0Process import L0Process
 from L1Process import L1Process
 from L2Spectrum import L2Spectrum
@@ -141,6 +145,10 @@ START_VIEWER = args.viewer
 #print debug info
 PRINT_VERBOSE = args.verbose
 #############################################
+
+
+
+
 
 # Create the PGP interfaces for ePix camera
 if args.simulation:
@@ -270,11 +278,6 @@ rawWriter._writer.open(raw_path)
 #ePixBoard.L0Writer.Open.set(True) 
 L0Writer._writer.setMaxSize(500 * 1024**2)
 L0Writer._writer.open(L0_path)
-# Enable the Bitmask L1 compressor
-ePixBoard.L1Writer.DataFile.set(L1_path)
-ePixBoard.L1Writer._writer.setMaxSize(5*1024 * 1024**2)
-ePixBoard.L1Writer.Open.set(True) 
-L1Writer._writer.open(L1_path)
 # S2 Writer, The Spectrum of 
 ePixBoard.S2Writer.DataFile.set(S2_path)
 ePixBoard.S2Writer._writer.setMaxSize(500 * 1024**2)
@@ -283,6 +286,13 @@ S2Writer._writer.open(S2_path)
 # L2P Writer 
 L2PWriter._writer.setMaxSize(500*1024**2)
 L2PWriter._writer.open(L2P_path)
+
+# Enable the Bitmask L1 compressor
+ePixBoard.L1Writer.DataFile.set(L1_path)
+ePixBoard.L1Writer._writer.setMaxSize(5*1024 * 1024**2)
+ePixBoard.L1Writer.Open.set(True) 
+L1Writer._writer.open(L1_path)
+
 
 # GUI
 guiTop.addTree(ePixBoard)
@@ -302,9 +312,107 @@ if START_VIEWER:
 if (START_GUI):
     appTop.exec_()
 
-# Close window and stop polling
-def stop():
-    mNode.stop()
-#    epics.stop()
-    ePixBoard.stop()
-    exit()
+
+
+
+
+
+
+
+
+
+
+
+
+# -----------------------------------------------------------------------------
+# Graceful shutdown
+# -----------------------------------------------------------------------------
+_cleanup_once_lock = threading.Lock()
+_cleanup_done = False
+
+def stop(exit_code: int = 0):
+    """Stop background threads/processes and hardware cleanly.
+
+    Notes:
+      - Do NOT call exit() inside this function (avoid recursion via atexit).
+      - Safe to call multiple times.
+    """
+    global _cleanup_done
+    with _cleanup_once_lock:
+        if _cleanup_done:
+            return
+        _cleanup_done = True
+
+    # 1) Stop software processing threads (L0/L1BM etc.)
+    for name in ("l1bm", "l0", "l1", "l2", "l3"):
+        obj = globals().get(name, None)
+        if obj is None:
+            continue
+        try:
+            if hasattr(obj, "stop"):
+                obj.stop()
+        except Exception:
+            pass
+
+    # 2) Stop StreamWriters (flush/close if supported)
+    for name in ("dataWriter", "rawWriter", "L0Writer", "L1Writer", "S2Writer", "L2PWriter"):
+        w = globals().get(name, None)
+        if w is None:
+            continue
+        try:
+            if hasattr(w, "close"):
+                w.close()
+            elif hasattr(w, "stop"):
+                w.stop()
+        except Exception:
+            pass
+
+    # 3) Stop top-level Rogue/PyRogue nodes
+    for name in ("mNode", "ePixBoard"):
+        node = globals().get(name, None)
+        if node is None:
+            continue
+        try:
+            if hasattr(node, "stop"):
+                node.stop()
+        except Exception:
+            pass
+
+    # If a GUI is running, request quit (safe even if not running)
+    try:
+        if globals().get("START_GUI", False):
+            # appTop is a QApplication/QCoreApplication wrapper in your stack
+            app = globals().get("appTop", None)
+            if app is not None and hasattr(app, "quit"):
+                app.quit()
+    except Exception:
+        pass
+
+    # Optional: if called from a signal handler, exit here
+    if exit_code is not None:
+        try:
+            sys.exit(exit_code)
+        except SystemExit:
+            raise
+
+def _sig_handler(signum, frame):
+    # Try to clean up, then exit immediately
+    try:
+        stop(exit_code=0)
+    except SystemExit:
+        raise
+    except Exception:
+        try:
+            sys.exit(0)
+        except SystemExit:
+            raise
+
+# Ensure cleanup on normal interpreter exit
+atexit.register(lambda: stop(exit_code=None))
+
+# Ensure cleanup on Ctrl+C / SIGTERM
+try:
+    signal.signal(signal.SIGINT, _sig_handler)
+    signal.signal(signal.SIGTERM, _sig_handler)
+except Exception:
+    pass
