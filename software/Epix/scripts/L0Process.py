@@ -17,14 +17,15 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
       - bad-pixel filtering
       - clamp and write back to uint16
 
-    Key design goal:
-      Keep Rogue's receive callback (_acceptFrame) lightweight by offloading heavy numpy
-      work to a small thread pool. Numpy releases the GIL for these operations, so
-      multiple worker threads can run concurrently on multiple CPU cores.
+    Concurrency model:
+      - _acceptFrame() stays lightweight: validate + (optional) gate + read + submit
+      - heavy numpy work runs in a small ThreadPoolExecutor
+      - a sender thread preserves output order by sending futures in submission order
 
-    Compatibility:
-      - Same class name and constructor interface as your current version.
-      - Same frame format in/out (header preserved; image data modified in-place in buffer).
+    IMPORTANT shutdown fix:
+      - stop() sets a stop flag first (gate) so _acceptFrame drops new frames
+      - submit() is wrapped to handle "cannot schedule new futures after shutdown"
+      - in-flight tokens (semaphore) are always released, even on exceptions
     """
 
     HEAD_LEN  = 32
@@ -46,15 +47,15 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         rogue.interfaces.stream.Slave.__init__(self)
         rogue.interfaces.stream.Master.__init__(self)
 
-        # ---- Load dark readout (read-only) ----
+        # ---- Load dark (read-only) ----
         dark = np.load(dark_path, mmap_mode='r')
         dark = np.asarray(dark, order='C')
         if dark.size != self.U16_COUNT:
             raise ValueError(f"dark size {dark.size} != {self.U16_COUNT}")
         self.dark_i32 = dark.reshape(self.NY, self.NX).astype(np.int32, copy=False)
 
-        # ---- Bad pixels filter mask (read-only) ----
-        # Your convention: filter.npy == 0 means "bad pixel" (mask True)
+        # ---- Load bad-pixel filter (read-only) ----
+        # Convention: filter.npy == 0 means "bad pixel" -> mask True
         self.bad_mask = None
         if filter_path is not None:
             filt = np.load(filter_path, mmap_mode='r')
@@ -69,26 +70,21 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         self.clamp_min = int(clamp_min)
         self.clamp_max = int(clamp_max)
 
-        # ---- Thread pool sizing ----
-        # Do not oversubscribe on large-core machines (often memory-bandwidth bound).
+        # ---- Thread pool sizing (avoid oversubscription on big-core machines) ----
         if n_workers is None:
             cpu = os.cpu_count() or 8
-            n_workers = max(4, min(16, cpu // 8))  # 128C -> 16; 32C -> 4
+            n_workers = max(4, min(16, cpu // 8))  # 128C->16, 32C->4
         self.n_workers = int(n_workers)
 
-        # ---- In-flight control ----
-        # Use a semaphore instead of "busy-wait + lock release/acquire".
-        # This is safer and avoids burning CPU in sleep loops.
+        # ---- In-flight control (memory bound) ----
         self.max_inflight = int(max_inflight)
         self.drop_if_busy = bool(drop_if_busy)
         self._sem = threading.Semaphore(self.max_inflight)
 
-        # ---- Per-thread workspace (avoids per-frame allocations) ----
+        # ---- Per-thread workspace (avoid per-frame allocations) ----
         self._tls = threading.local()
 
         # ---- Ordering and sender thread ----
-        # We keep a deque of futures in submission order, then the sender thread only
-        # sends when the head future is done. This preserves output order.
         self._futs = deque()
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -97,7 +93,7 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         self._sender = threading.Thread(target=self._sender_loop, daemon=True)
         self._sender.start()
 
-    # ---- Per-thread workspace holder ----
+    # ---- Per-thread workspace ----
     def _ws(self):
         ws = getattr(self._tls, "ws", None)
         if ws is not None:
@@ -115,26 +111,21 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 
     def _col_common_mode(self, w2d: np.ndarray, mask_2d: np.ndarray, col_med: np.ndarray, thr: int) -> None:
         """
-        Column-wise common-mode correction:
-          - Build a mask selecting "quiet" pixels (w2d < thr)
-          - Compute per-column mean of selected pixels
-          - Subtract per-column mean from each column
+        Column common-mode correction using "quiet" pixels (w2d < thr).
         """
         if not self.enable_common_mode:
             return
 
-        # mask_2d True means "quiet" pixel
+        # mask_2d True => selected quiet pixels
         np.less(w2d, thr, out=mask_2d)
 
-        # Count selected pixels per column; avoid divide-by-zero
         cnt_cols = mask_2d.sum(axis=0).astype(np.int64, copy=False)
         np.maximum(cnt_cols, 1, out=cnt_cols)
 
-        # Sum selected pixels per column without allocating a full temporary
+        # Use sum with "where" if available (avoids allocating temporaries)
         try:
             sum_cols = np.sum(w2d, axis=0, dtype=np.int64, where=mask_2d)
         except TypeError:
-            # Fallback for older numpy that lacks "where=" in np.sum
             sum_cols = np.sum(np.where(mask_2d, w2d, 0), axis=0, dtype=np.int64)
 
         col_med[:] = (sum_cols // cnt_cols).astype(np.int32, copy=False)
@@ -142,10 +133,9 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 
     def _process_buf(self, buf: bytearray) -> bytearray:
         """
-        Heavy processing function (runs in worker threads).
-        Operates in-place on the provided bytearray buffer.
+        Heavy processing (runs in worker thread). Modifies buf in-place and returns it.
         """
-        # Writable view into the uint16 image inside the buffer
+        # Writable view into uint16 image region
         arr_u2 = np.frombuffer(
             buf, dtype=np.dtype('<u2'),
             count=self.U16_COUNT, offset=self.HEAD_LEN
@@ -154,8 +144,7 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         ws = self._ws()
         work_i32 = ws.work_i32
 
-        # raw -> i32: raw - dark
-        # (casting='unsafe' is fine since both are numeric arrays)
+        # raw - dark -> i32
         np.subtract(arr_u2, self.dark_i32, out=work_i32, casting='unsafe')
 
         # Dynamic threshold: 4*n1 + mean(raw-dark)
@@ -166,18 +155,18 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         elif thr > 0xFFFF:
             thr = 0xFFFF
 
-        # Column common-mode correction
+        # Column common mode
         self._col_common_mode(work_i32, ws.mask_2d, ws.col_med, thr)
 
-        # Bad pixel filter: set bad pixels to 0
+        # Bad pixels
         if self.bad_mask is not None:
             work_i32[self.bad_mask] = 0
 
-        # Clip & write back to uint16 image area
+        # Clamp and write back
         np.clip(work_i32, self.clamp_min, self.clamp_max, out=work_i32)
         arr_u2[:, :] = work_i32.astype(np.uint16, copy=False)
 
-        # Timestamp (preserve original behavior: seconds, written at offset 28)
+        # Timestamp: seconds, written at offset 28 (preserve behavior)
         ts_s = int(time.time())
         struct.pack_into('<I', buf, 28, ts_s & 0xFFFFFFFF)
 
@@ -186,13 +175,12 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
     def _acceptFrame(self, frame):
         """
         Rogue receive callback.
-        Keep this fast:
-          - Validate payload
-          - Acquire in-flight token
-          - Read into bytearray
-          - Submit to thread pool
-          - Append future to deque for in-order sending
+        Must be safe during shutdown: never submit after executor shutdown.
         """
+        # Gate immediately if stopping
+        if self._stop.is_set():
+            return
+
         size = frame.getPayload()
 
         # Only process fully valid frames
@@ -201,30 +189,43 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         if valid_bytes < self.DATA_LEN:
             return
 
-        # In-flight gate: either drop or block
+        # In-flight gate
         if self.drop_if_busy:
             if not self._sem.acquire(blocking=False):
                 return
         else:
             self._sem.acquire()
 
-        # Copy payload into a mutable buffer (required because we modify it in-place)
+        # stop could be set while waiting for semaphore
+        if self._stop.is_set():
+            self._sem.release()
+            return
+
+        # Read payload into mutable buffer
         buf = bytearray(size)
         frame.read(buf, 0)
 
-        # Submit heavy work. Release semaphore via callback no matter what.
-        fut = self._exec.submit(self._process_buf, buf)
+        # Submit heavy work; handle shutdown race gracefully
+        try:
+            fut = self._exec.submit(self._process_buf, buf)
+        except RuntimeError:
+            # "cannot schedule new futures after shutdown"
+            self._sem.release()
+            return
+
+        # Always release the in-flight token when the future completes (success or failure)
         fut.add_done_callback(lambda _f: self._sem.release())
 
-        # Preserve submission order
+        # Preserve output order
         with self._lock:
+            # If stop is set right now, do not enqueue new futures
+            if self._stop.is_set():
+                return
             self._futs.append(fut)
 
     def _sender_loop(self):
         """
-        Sender thread:
-          - Maintains output order by only sending when the head future is done.
-          - If a worker raises, we drop that frame's output (but semaphore already released).
+        Sender thread: sends frames in submission order.
         """
         while not self._stop.is_set():
             fut = None
@@ -246,7 +247,7 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
             try:
                 out_buf = fut.result()
             except Exception:
-                # Worker failed; skip sending this frame
+                # Worker failed; drop output for this frame
                 continue
 
             out = self._reqFrame(len(out_buf), True)
@@ -254,14 +255,28 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
             self._sendFrame(out)
 
     def stop(self):
-        """Stop threads and shutdown executor."""
+        """
+        Stop processing:
+          1) gate _acceptFrame() immediately
+          2) stop sender thread
+          3) shutdown executor
+        """
         self._stop.set()
+
         try:
             self._sender.join(timeout=1.0)
         except Exception:
             pass
+
         try:
+            # cancel_futures requires Python 3.9+
             self._exec.shutdown(wait=False, cancel_futures=True)
+        except TypeError:
+            # older Python: no cancel_futures
+            try:
+                self._exec.shutdown(wait=False)
+            except Exception:
+                pass
         except Exception:
             pass
 
