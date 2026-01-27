@@ -4,6 +4,8 @@
 # EMACS temp files
 *~
 
+*.dat.*
+
 # Compiled source files
 *.com
 *.class
