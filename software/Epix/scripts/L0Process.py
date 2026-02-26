@@ -31,6 +31,7 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
                  # === dynamic calib ===
                  dynamic_calib=False,
                  dynamic_calib_dir="/data/dark",
+                 dynamic_filter_dir="/data/epix/software/Mossbauer",
                  dynamic_calib_period_s=3600,
                  # =====================
 
@@ -50,7 +51,7 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 
         if self.dynamic_calib:
             self.dark_path   = os.path.join(dynamic_calib_dir, "dark_2D.npy")
-            self.filter_path = os.path.join(dynamic_calib_dir, "filter.npy")
+            self.filter_path = os.path.join(dynamic_filter_dir, "filter.npy")
         else:
             self.dark_path   = dark_path
             self.filter_path = filter_path

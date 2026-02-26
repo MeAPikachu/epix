@@ -171,6 +171,8 @@ dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
 #pyrogue.streamConnect(pgpVc0, dataWriter.getChannel(0x1))
 l0 = L0Process(dark_path="/data/dark/dark_2D.npy",filter_path="/data/epix/software/Mossbauer/filter.npy",
                n1=8, enable_common_mode=True,dynamic_calib=True)
+#l0 = L0Process(dark_path="/data/epix/software/Mossbauer/dark_2D.npy",filter_path="/data/epix/software/Mossbauer/filter.npy",
+#               n1=8, enable_common_mode=True,dynamic_calib=False)
 #l1 = L1Process(gain_path="/data/epix/software/Mossbauer/new_gain.npy")
 #l1 = L1Process(gain_scalar=17)
 l1 = L1Process(gain_path="/data/epix/software/Mossbauer/gain.npy")
@@ -263,7 +265,7 @@ time.sleep(0.2)
 
 #Data Path;
 ePixBoard.dataWriter.DataFile.set(data_path)
-ePixBoard.dataWriter._writer.setMaxSize(5*1024 * 1024**2)
+ePixBoard.dataWriter._writer.setMaxSize(1*1024 * 1024**2)
 ePixBoard.dataWriter.Open.set(True) 
 
 # Enable the parallel raw record 
