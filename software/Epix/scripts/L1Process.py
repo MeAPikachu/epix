@@ -1,18 +1,18 @@
 # L1Gain.py
 import numpy as np
-import rogue.interfaces.stream  # 不用别名
+import rogue.interfaces.stream  
 
 class L1Process(rogue.interfaces.stream.Slave,
 			 rogue.interfaces.stream.Master):
 
-	HEAD_LEN  = 32                 # 若头是 40，请改成 40
+	HEAD_LEN  = 32                 # The header length is 32
 	NY, NX    = 176, 768
 	U16_COUNT = NY * NX
 	DATA_LEN  = U16_COUNT * 2
 
 	def __init__(self,
-				 gain_path=None,        # (176,768) 的 float32/64；像素级优先
-				 gain_scalar=None,      # 备选：标量增益
+				 gain_path=None,        # (176,768) 的 float32/64；
+				 gain_scalar=None,      
 				 scale=256, 
 				 clamp_min=0, clamp_max=0xFFFF,
 				 round_mode='nearest'   # 'nearest' | 'floor' | 'ceil' | 'none'
@@ -39,7 +39,7 @@ class L1Process(rogue.interfaces.stream.Slave,
 				raise ValueError(f"invalid gain_scalar={gain_scalar}")
 			self.coeff_scalar = np.float32(self.SCALE / gs)
 		else:
-			# 未给 gain：相当于 /1 * 128
+			
 			self.coeff_scalar = self.SCALE/17
 
 		# Work buffer
@@ -52,12 +52,11 @@ class L1Process(rogue.interfaces.stream.Slave,
 	def _acceptFrame(self, frame):
 		size = frame.getPayload()
 		if size < self.HEAD_LEN + self.DATA_LEN:
-			return  # 丢弃非整帧
+			return  
 
 		buf = bytearray(size)
 		frame.read(buf, 0)
 
-		# 有效区视图 <u2, LE> -> (NY,NX)
 		arr_u2 = np.frombuffer(buf, dtype=np.dtype('<u2'),
 							   count=self.U16_COUNT, offset=self.HEAD_LEN
 							  ).reshape(self.NY, self.NX)
@@ -65,25 +64,22 @@ class L1Process(rogue.interfaces.stream.Slave,
 		# U16 -> F32
 		self.work_f32[:] = arr_u2
 
-		# 仅一次乘法：(* 128 / gain)
 		if self.coeff is not None:
 			np.multiply(self.work_f32, self.coeff, out=self.work_f32)
 		else:
 			self.work_f32 *= self.coeff_scalar
 
-		# 裁剪
+		# Clip
 		np.clip(self.work_f32, self.clamp_min, self.clamp_max, out=self.work_f32)
 
-		# 取整
+		# Round
 		if self.round_mode == 'nearest':
 			np.rint(self.work_f32, out=self.work_f32)
 		elif self.round_mode == 'floor':
 			np.floor(self.work_f32, out=self.work_f32)
 		elif self.round_mode == 'ceil':
 			np.ceil(self.work_f32, out=self.work_f32)
-		# 'none'：保留小数，下面转型将截断
 
-		# 回写 <u2>
 		arr_u2[:, :] = self.work_f32.astype(np.uint16, copy=False)
 
 		out = self._reqFrame(size, True)

@@ -171,12 +171,8 @@ dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
 #pyrogue.streamConnect(pgpVc0, dataWriter.getChannel(0x1))
 l0 = L0Process(dark_path="/data/dark/dark_2D.npy",filter_path="/data/epix/software/Mossbauer/filter.npy",
                n1=8, enable_common_mode=True,dynamic_calib=True)
-#l0 = L0Process(dark_path="/data/epix/software/Mossbauer/dark_2D.npy",filter_path="/data/epix/software/Mossbauer/filter.npy",
-#               n1=8, enable_common_mode=True,dynamic_calib=False)
-#l1 = L1Process(gain_path="/data/epix/software/Mossbauer/new_gain.npy")
-#l1 = L1Process(gain_scalar=17)
 l1 = L1Process(gain_path="/data/epix/software/Mossbauer/gain.npy")
-l2 = L2Process()
+l2 = L2Process(low_bin= 12.5, high_bin= 15.9)
 l3 = L3Process()
 
 # Main Data Stream
@@ -208,8 +204,8 @@ l1bm = L1BitmaskCompressor(threshold=50, emit_empty=False)
 pyrogue.streamTap(l0, l1bm)
 pyrogue.streamConnect(l1bm, L1Writer.getChannel(0x1))
 # S2, Spectrum
-specTap = L2Spectrum(every_n=10)  # 每10帧输出一次
-pyrogue.streamTap(l1, specTap)                         # 从 L1 旁路
+specTap = L2Spectrum(every_n=10)  
+pyrogue.streamTap(l1, specTap)                         
 pyrogue.streamConnect(specTap, S2Writer.getChannel(0x1))
 # L2 Para for 122keV, each frame; 
 L2PTap = L2Para()
