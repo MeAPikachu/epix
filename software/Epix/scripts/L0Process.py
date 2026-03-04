@@ -47,7 +47,7 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
                  # === threading/flow ===
                  n_workers=None,
                  max_inflight=2048,
-                 drop_if_busy=False,
+                 drop_if_busy=True,
 
                  # === optional centroid ===
                  enable_centroid=False,
