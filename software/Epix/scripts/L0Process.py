@@ -29,8 +29,8 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
                  # =========================
                  # Frame geometry (NEW)
                  # =========================
-                 ny=196,
-                 nx=792,
+                 ny=176,
+                 nx=768,
 
                  # =========================
                  # Static calib paths
