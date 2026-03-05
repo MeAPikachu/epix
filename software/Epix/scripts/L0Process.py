@@ -51,7 +51,7 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 
                  # === centroid/charge sharing (ADD-ON; default OFF) ===
                  enable_centroid=False,
-                 n2=8,                      # thr_cs = 4*n2
+                 n2=15,                      # thr_cs = 4*n2
                  centroid_use_ge=False       # >= neighbors vs > neighbors
                  ):
 
