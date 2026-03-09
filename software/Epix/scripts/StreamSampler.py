@@ -1,5 +1,8 @@
 import time
 import rogue.interfaces.stream
+
+# This Function is used for the samplers , both the L0 sampler and the L1 sampler;
+# Fetch and receive a sample each time; 
 class StreamSampler(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 	HEAD_LEN  = 32
 	NY        = 176

@@ -2,6 +2,7 @@
 import numpy as np
 import rogue.interfaces.stream  # 不用别名
 
+# L2 Para is used to calculate the distribution of the 122keV; 
 class L2Para(rogue.interfaces.stream.Slave,
 						rogue.interfaces.stream.Master):
 	"""
