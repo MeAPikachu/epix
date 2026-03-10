@@ -1,128 +1,216 @@
 # L3StateAggregator_U16.py
-import numpy as np
-import struct
-import rogue.interfaces.stream  # The interface for rogue; 
 import time
+import struct
+import threading
+from collections import deque
 
-# The new version of the L3 is not continously collecting data in the same direction;
-# Instead, it will keep flipping;
-# So we will keep two different buf for forward and backward; 
+import numpy as np
+import rogue.interfaces.stream
+
 
 class L3Process(rogue.interfaces.stream.Slave,
-						rogue.interfaces.stream.Master):
-	"""
-	The L3 Process reduces the time resolution, based on the direction
-	of the DAQ input, adds the 
-	"""
-	HEAD_IN  = 32
-	BY, BX   = 44, 192
-	BLK_CNT  = BY * BX  # 8448
+                rogue.interfaces.stream.Master):
+    """
+    L3 process:
+      - consumes L2 output: 8448 x uint8 block counts + 32-byte header
+      - accumulates counts over compression_ratio frames
+      - keeps separate accumulation for two directions/states
+      - emits 8448 x uint16 accumulated frame when enough frames arrive
 
-	def __init__(self,compression_ratio=400):
-		rogue.interfaces.stream.Slave.__init__(self)
-		rogue.interfaces.stream.Master.__init__(self)
+    Notes:
+      - this stage is stateful and order-sensitive
+      - therefore it uses a single background worker thread, not a worker pool
+      - this still lowers main-thread time in _acceptFrame()
+    """
 
-		# The default compression ratio is 10;		
-		self.compression_ratio=compression_ratio 
+    HEAD_IN  = 32
+    BY, BX   = 44, 192
+    BLK_CNT  = BY * BX   # 8448
+    DATA_IN  = BLK_CNT   # L2 output is uint8 per block
+    DATA_OUT = BLK_CNT * 2  # L3 output is uint16 per block
 
-		# The state of the compressed frame; 
-		self._state = [None,None ]             
-		
-		# How many frames have we got; 
-		self._frames_acc= [0,0]
-		
-		# The sum of the total counts; 
-		self._acc = [ np.zeros(self.BLK_CNT, dtype=np.uint16) , np.zeros(self.BLK_CNT, dtype=np.uint16) ] 
-		
-		# The head of the first frames ; 
-		self._orig32_seg = [None, None]          
+    def __init__(self,
+                 compression_ratio=400,
+                 max_inflight=2048,
+                 drop_if_busy=False):
+        rogue.interfaces.stream.Slave.__init__(self)
+        rogue.interfaces.stream.Master.__init__(self)
 
+        self.compression_ratio = int(compression_ratio)
 
+        # state for direction 0 / 1
+        self._state = [None, None]
+        self._frames_acc = [0, 0]
+        self._acc = [
+            np.zeros(self.BLK_CNT, dtype=np.uint16),
+            np.zeros(self.BLK_CNT, dtype=np.uint16)
+        ]
+        self._orig32_seg = [None, None]
 
-	@staticmethod
-	def _state_from_word4(orig32: bytes) -> int:
-		word = struct.unpack_from('<I', orig32, 16)[0]
-		return 0 if word == 0 else 1
+        # bounded queue control
+        self.max_inflight = int(max_inflight)
+        self.drop_if_busy = bool(drop_if_busy)
+        self._sem = threading.Semaphore(self.max_inflight)
 
+        # simple FIFO for input buffers
+        self._queue = deque()
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
 
-	# This function will send the frame;
-	def _emit_segment(self,st=0,orig32=None):
-		
-		if orig32 is None:
-			orig32 = bytes(32)
-		if self._state[st] is None or self._frames_acc[st] == 0:
-			return
+        # single worker thread
+        self._worker = threading.Thread(target=self._worker_loop, daemon=True)
+        self._worker.start()
 
-		out_len = self.HEAD_IN + self.BLK_CNT * 2
-		out_buf = bytearray(out_len)
-		out_buf[:self.HEAD_IN] = self._orig32_seg[st]
-		
-		# Word 3  The frame count , which should be the compresssion ratio ; 
-		struct.pack_into('<I', out_buf, 12, int(self._frames_acc[st]))
-		
-		# Word 6, the run count of the last frame;
-		struct.pack_into('<I', out_buf, 24, struct.unpack_from('<I', orig32, 24)[0] )
-		# Ideally, Word6-Word2 should be 2*(compression_ratio -1 )
-		
-		# Word 5, the microseconds timestamp from the computer ; 
-		# Word 7, the seconds timestamp from the computer; 
-		# This part is already done by the L0; 
-		#ns = time.time_ns()
-		#second = ns // 1_000_000_000
-		#microsecond = (ns % 1_000_000_000) // 1_000       
-		#struct.pack_into('<I', out_buf, 20, microsecond & 0xFFFFFFFF)
-		# The second part is already included in L0 
-		#struct.pack_into('<I', out_buf, 28, second & 0xFFFFFFFF)
-		
+    @staticmethod
+    def _state_from_word4(orig32: bytes) -> int:
+        word = struct.unpack_from('<I', orig32, 16)[0]
+        return 0 if word == 0 else 1
 
-		# 8448×u16 Small End, get the data from the acc variable; 
-		mv = memoryview(out_buf)
-		np.frombuffer(mv[self.HEAD_IN:], dtype='<u2', count=self.BLK_CNT)[:] = self._acc[st]
+    # ------------------------------------------------------------------
+    # emit one accumulated segment
+    # ------------------------------------------------------------------
+    def _emit_segment(self, st=0, orig32=None):
+        if orig32 is None:
+            orig32 = bytes(32)
 
-		# Send the frame ; 
-		f = self._reqFrame(out_len, True)
-		f.write(out_buf, 0)
-		self._sendFrame(f)
+        if self._state[st] is None or self._frames_acc[st] == 0:
+            return
 
-		# Reset the relevant variables; 
-		self._acc[st].fill(0)
-		self._frames_acc[st] = 0
-		self._orig32_seg[st] = None
-		self._state[st]= None 
+        out_len = self.HEAD_IN + self.DATA_OUT
+        out_buf = bytearray(out_len)
 
-	# To some degree,  the _acceptFrame is the start of everythingl 
-	def _acceptFrame(self, frame):
-		
-		# Fetch a frame and get the direction of it. 
-		size = frame.getPayload()
-		min_len = self.HEAD_IN + self.BLK_CNT  
-		if size < min_len:
-			return  
-		buf = bytearray(size)
-		frame.read(buf, 0)
-		orig32 = bytes(buf[:self.HEAD_IN])
-		# Readout the direction of the state; 
-		st = self._state_from_word4(orig32)
+        # keep header from the first frame of this segment
+        out_buf[:self.HEAD_IN] = self._orig32_seg[st]
 
-		# If it is the first frame; 
-		if self._state[st] is None:
-			self._state[st] = st
-			self._orig32_seg[st] = orig32
+        # word 3: number of accumulated frames
+        struct.pack_into('<I', out_buf, 12, int(self._frames_acc[st]))
 
-		# Add the new value to the buffer of the correlated array 
-		vals_u8 = np.frombuffer(buf, dtype=np.uint8,offset=self.HEAD_IN, count=self.BLK_CNT)
-		tmp32 = self._acc[st].astype(np.uint32) + vals_u8.astype(np.uint32)
-		np.minimum(tmp32, 0xFFFF, out=tmp32)
-		self._acc[st][:] = tmp32.astype(np.uint16)
+        # word 6: run count from the last frame
+        struct.pack_into('<I', out_buf, 24, struct.unpack_from('<I', orig32, 24)[0])
 
-		# Add the counts by one
-		self._frames_acc[st] += 1
-		
-		# If it is the last frame; Send the data and reset things to zero; 
-		if self._frames_acc[st]>= self.compression_ratio: 
-			self._emit_segment(st,orig32)
+        # keep word 5 / word 7 timestamps from L0 header chain unchanged
 
+        # append 8448 x uint16 counts
+        np.frombuffer(
+            out_buf,
+            dtype=np.dtype('<u2'),
+            count=self.BLK_CNT,
+            offset=self.HEAD_IN
+        )[:] = self._acc[st]
 
-	def flush(self):
-		self._emit_segment(st=0)
-		self._emit_segment(st=1)
+        f = self._reqFrame(out_len, True)
+        f.write(out_buf, 0)
+        self._sendFrame(f)
+
+        # reset this state
+        self._acc[st].fill(0)
+        self._frames_acc[st] = 0
+        self._orig32_seg[st] = None
+        self._state[st] = None
+
+    # ------------------------------------------------------------------
+    # process one input buffer
+    # ------------------------------------------------------------------
+    def _process_buf(self, buf):
+        orig32 = bytes(buf[:self.HEAD_IN])
+        st = self._state_from_word4(orig32)
+
+        # first frame of this segment for this state
+        if self._state[st] is None:
+            self._state[st] = st
+            self._orig32_seg[st] = orig32
+
+        vals_u8 = np.frombuffer(
+            buf,
+            dtype=np.uint8,
+            count=self.BLK_CNT,
+            offset=self.HEAD_IN
+        )
+
+        tmp32 = self._acc[st].astype(np.uint32) + vals_u8.astype(np.uint32)
+        np.minimum(tmp32, 0xFFFF, out=tmp32)
+        self._acc[st][:] = tmp32.astype(np.uint16)
+
+        self._frames_acc[st] += 1
+
+        if self._frames_acc[st] >= self.compression_ratio:
+            self._emit_segment(st=st, orig32=orig32)
+
+    # ------------------------------------------------------------------
+    # background worker
+    # ------------------------------------------------------------------
+    def _worker_loop(self):
+        while not self._stop.is_set():
+            with self._lock:
+                buf = self._queue.popleft() if self._queue else None
+
+            if buf is None:
+                time.sleep(0.0005)
+                continue
+
+            try:
+                self._process_buf(buf)
+            except Exception as e:
+                print(f"[L3Process] worker failed: {e}")
+            finally:
+                self._sem.release()
+
+    # ------------------------------------------------------------------
+    # Rogue callback
+    # ------------------------------------------------------------------
+    def _acceptFrame(self, frame):
+        if self._stop.is_set():
+            return
+
+        size = frame.getPayload()
+        min_len = self.HEAD_IN + self.DATA_IN
+        if size < min_len:
+            return
+
+        if self.drop_if_busy:
+            if not self._sem.acquire(blocking=False):
+                return
+        else:
+            self._sem.acquire()
+
+        if self._stop.is_set():
+            self._sem.release()
+            return
+
+        buf = bytearray(size)
+        frame.read(buf, 0)
+
+        with self._lock:
+            if self._stop.is_set():
+                self._sem.release()
+                return
+            self._queue.append(buf)
+
+    # ------------------------------------------------------------------
+    # flush remaining segments
+    # ------------------------------------------------------------------
+    def flush(self):
+        # wait briefly for queue to drain
+        while True:
+            with self._lock:
+                empty = (len(self._queue) == 0)
+            if empty:
+                break
+            time.sleep(0.001)
+
+        self._emit_segment(st=0)
+        self._emit_segment(st=1)
+
+    def stop(self):
+        self._stop.set()
+
+        try:
+            self._worker.join(timeout=1.0)
+        except Exception:
+            pass
+
+    def __del__(self):
+        try:
+            self.stop()
+        except Exception:
+            pass
