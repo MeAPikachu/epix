@@ -43,7 +43,7 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
                  round_mode='nearest',
 
                  # centroid
-                 enable_centroid=True,
+                 enable_centroid=False,
                  n2=15,
                  centroid_use_ge=False,
 
