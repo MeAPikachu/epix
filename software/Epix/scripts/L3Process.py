@@ -18,7 +18,7 @@ class L3Process(rogue.interfaces.stream.Slave,
 	BY, BX   = 44, 192
 	BLK_CNT  = BY * BX  # 8448
 
-	def __init__(self,compression_ratio=10):
+	def __init__(self,compression_ratio=400):
 		rogue.interfaces.stream.Slave.__init__(self)
 		rogue.interfaces.stream.Master.__init__(self)
 
