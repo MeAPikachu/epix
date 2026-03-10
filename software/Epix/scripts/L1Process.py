@@ -139,7 +139,7 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         if self.enable_centroid:
             dummy_in = np.zeros((self.NY, self.NX), dtype=np.uint16)
             dummy_out = np.zeros((self.NY, self.NX), dtype=np.float32)
-            _centroid_sum_u16_to_f32(dummy_in, max(0, 4 * self.n2), self.centroid_use_ge, dummy_out)
+            _centroid_sum_u16_to_f32(dummy_in, max(0, 4 * self.n2), dummy_out)
 
         # dynamic gain watcher
         if self.dynamic_gain:
