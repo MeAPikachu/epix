@@ -217,8 +217,12 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         np.clip(work_i32, self.clamp_min, self.clamp_max, out=work_i32)
         arr_u2[:, :] = work_i32.astype(np.uint16, copy=False)
 
-        ts_s = int(time.time())
-        struct.pack_into('<I', buf, 28, ts_s & 0xFFFFFFFF)
+        ns = time.time_ns()
+        second = ns // 1_000_000_000
+        microsecond = (ns % 1_000_000_000) // 1_000       
+        struct.pack_into('<I', buf, 20, microsecond & 0xFFFFFFFF)
+        # The second part is already included in L0 
+        struct.pack_into('<I', buf, 28, second & 0xFFFFFFFF)
 
         return buf
 
