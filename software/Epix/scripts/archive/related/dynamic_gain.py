@@ -173,7 +173,9 @@ def pick_2nd_to_5th_newest_L1dat(base_dir="/data/L1", pattern="L1*.dat", n=4):
 def main():
     base_dir = "/data/L1"
     out_dir = "/data/gain"
+    out_filter_dir = '/data/gain/filter'
     os.makedirs(out_dir, exist_ok=True)
+    os.makedirs(out_filter_dir, exist_ok=True)
 
     # 1) pick files (2nd~5th newest by mtime) among L1*.dat
     paths = pick_2nd_to_5th_newest_L1dat(base_dir=base_dir, pattern="L1*.dat", n=4)
@@ -188,15 +190,20 @@ def main():
 
     # 3) compute gain using your formula
     gain = gain_from_hist_argmax(hist, start_bin=100, denom=14.4)
+    goodfilter = (gain>8) * (gain<20)
 
     # 4) save outputs
+    ts = int(time.time())
     out_npy = os.path.join(out_dir, "gain.npy")
-    out2_npy = os.path.join(out_dir, "gain_{}.npy".format(int(time.time()))) 
+    out2_npy = os.path.join(out_dir, "gain_{}.npy".format(ts)) 
     np.save(out_npy, gain.astype(np.float32))
-    np.save(out2_npy, gain.astype(np.float32))
-
-
-
+    np.save(out2_npy, gain.astype(np.float32))    
+    
+    
+    fout_npy = os.path.join(out_filter_dir, "filter.npy")
+    fout2_npy = os.path.join(out_filter_dir, "filter_{}.npy".format(ts)) 
+    np.save(fout_npy, goodfilter.astype(np.float32))
+    np.save(fout2_npy, goodfilter.astype(np.float32))
 
 if __name__ == "__main__":
     main()
