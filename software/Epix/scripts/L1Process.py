@@ -9,15 +9,14 @@ import rogue.interfaces.stream
 from numba import njit, prange
 
 
-@njit(cache=True)
-def _centroid_sum_u16_to_f32(arr_u2, thr_cs, use_ge, out_f32):
+from numba import njit, prange
+
+
+@njit(cache=True, parallel=True, fastmath=True)
+def _centroid_sum_u16_to_f32(arr_u2, thr_cs, out_f32):
     ny, nx = arr_u2.shape
 
-    for y in range(ny):
-        for x in range(nx):
-            out_f32[y, x] = 0.0
-
-    for y in range(1, ny - 1):
+    for y in prange(1, ny - 1):
         for x in range(1, nx - 1):
             c = arr_u2[y, x]
             if c < thr_cs:
@@ -33,12 +32,8 @@ def _centroid_sum_u16_to_f32(arr_u2, thr_cs, use_ge, out_f32):
             zu = 0 if u < thr_cs else u
             zd = 0 if d < thr_cs else d
 
-            if use_ge:
-                if c >= zl and c >= zr and c >= zu and c >= zd:
-                    out_f32[y, x] = float(c + zl + zr + zu + zd)
-            else:
-                if c > zl and c > zr and c > zu and c > zd:
-                    out_f32[y, x] = float(c + zl + zr + zu + zd)
+            if c > zl and c > zr and c > zu and c > zd:
+                out_f32[y, x] = float(c + zl + zr + zu + zd)
 
 
 class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
