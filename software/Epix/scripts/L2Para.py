@@ -24,7 +24,7 @@ class L2Para(rogue.interfaces.stream.Slave,
 				 low_bin: int = 100,
 				 high_bin: int = 140,
 				 scale: int = 256,
-				 group_frames: int = 10):
+				 group_frames: int = 100):
 		rogue.interfaces.stream.Slave.__init__(self)
 		rogue.interfaces.stream.Master.__init__(self)
 
@@ -48,14 +48,14 @@ class L2Para(rogue.interfaces.stream.Slave,
 			self._hi = self._lo
 
 	def _emit_group(self):
-		"""把当前累计组打包输出；若当前为空则忽略。"""
+		# Group some of the frames together and then output ; s
 		if self._acc_frames == 0 or self._orig32 is None:
 			return
 
 		out_len = self.HEAD_IN + self.NBLOCK * 4  # 32B + 2112*u32
 		out_buf = bytearray(out_len)
 
-		# 拷贝 32B 原头（不做修改）
+		# Copy the original header 
 		out_buf[:self.HEAD_IN] = self._orig32
 
 		# 写 uint32 结果（LE）

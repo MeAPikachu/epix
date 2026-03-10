@@ -5,7 +5,7 @@ import os
 import glob
 import struct
 import numpy as np
-from tqdm import tqdm
+#from tqdm import tqdm
 import time 
 
 # =========================
@@ -84,7 +84,7 @@ def build_pixel_hist(paths, vmin=0, vmax=2200):
             for frame in iter_l1bm_frames(path):
                 yield path, frame
 
-    for path, (_, _, ny_i, nx_i, _, mask2d, vals) in tqdm(all_frames(), desc="frames"):
+    for path, (_, _, ny_i, nx_i, _, mask2d, vals) in all_frames():
         # allocate on first frame
         if hist_flat is None:
             ny, nx = ny_i, nx_i
@@ -172,7 +172,7 @@ def pick_2nd_to_5th_newest_L1dat(base_dir="/data/L1", pattern="L1*.dat", n=4):
 
 def main():
     base_dir = "/data/L1"
-    out_dir = "/data/L1/gain"
+    out_dir = "/data/gain"
     os.makedirs(out_dir, exist_ok=True)
 
     # 1) pick files (2nd~5th newest by mtime) among L1*.dat
