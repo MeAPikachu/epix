@@ -66,11 +66,13 @@ class L3Process(rogue.interfaces.stream.Slave,
 		
 		# Word 5, the microseconds timestamp from the computer ; 
 		# Word 7, the seconds timestamp from the computer; 
-		ns = time.time_ns()
-		second = ns // 1_000_000_000
-		microsecond = (ns % 1_000_000_000) // 1_000       
-		struct.pack_into('<I', out_buf, 20, microsecond & 0xFFFFFFFF)
-		struct.pack_into('<I', out_buf, 28, second & 0xFFFFFFFF)
+		# This part is already done by the L0; 
+		#ns = time.time_ns()
+		#second = ns // 1_000_000_000
+		#microsecond = (ns % 1_000_000_000) // 1_000       
+		#struct.pack_into('<I', out_buf, 20, microsecond & 0xFFFFFFFF)
+		# The second part is already included in L0 
+		#struct.pack_into('<I', out_buf, 28, second & 0xFFFFFFFF)
 		
 
 		# 8448×u16 Small End, get the data from the acc variable; 

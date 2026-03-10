@@ -2,10 +2,12 @@
 import numpy as np
 import rogue.interfaces.stream  # 不用别名
 
+
+# L2 Spectrum is a side stream, to 
 class L2Spectrum(rogue.interfaces.stream.Slave,
                     rogue.interfaces.stream.Master):
     """
-    Output the spectrum of the 
+    Output the spectrum of the whole events, the 0-20keV will be precise while the 20-200keV will be difficult; 
     """
     HEAD_IN   = 32
     NY, NX    = 176, 768
@@ -17,6 +19,7 @@ class L2Spectrum(rogue.interfaces.stream.Slave,
     LOW_STEP  = 4
     HIGH_STEP = 256
 
+    # From 0 to 20keV, the precision is 1/64keV, from 20keV to 200keV, the precision is 1keV
     NB_LO     = SPLIT // LOW_STEP                 # 5120/4   = 1280
     NB_HI     = (MAX_VAL - SPLIT) // HIGH_STEP    # (51200-5120)/256 = 180
     NBINS     = NB_LO + NB_HI                     # 1460
@@ -26,34 +29,33 @@ class L2Spectrum(rogue.interfaces.stream.Slave,
         rogue.interfaces.stream.Master.__init__(self)
         self._counts = np.zeros(self.NBINS, dtype=np.uint32)
         self.every_n = max(1, int(every_n))
-        self._idx    = 0  # 帧计数器：0,1,2,...
+        self._idx    = 0  # Counters
 
     def _acceptFrame(self, frame):
         size = frame.getPayload()
-        # 帧计数先留到末尾统一自增，确保 0, every_n, 2*every_n ... 被选中
         if size < self.HEAD_IN + self.DATA_IN:
             self._idx += 1
-            return  # 非完整帧丢弃
+            return  # Discard Incomplete frames 
 
-        # 只在满足间隔时才解析/输出；否则直接跳过
+        # Only take the sampled data; 
         take = (self._idx % self.every_n) == 0
         if not take:
             self._idx += 1
             return
 
-        # 读整帧
+        # Read the whole frame; 
         buf = bytearray(size)
         frame.read(buf, 0)
 
-        # 原始 32B 头
+        # The original head
         orig32 = buf[:self.HEAD_IN]
 
-        # 图像视图（<u2 小端）
+        # Reshape the data 
         img = np.frombuffer(buf, dtype=np.dtype('<u2'),
                             count=self.NPIX, offset=self.HEAD_IN
                            ).reshape(self.NY, self.NX)
 
-        # 计算光谱
+        # Calculate the spectrum; 
         self._counts.fill(0)
         a = img.ravel().astype(np.int32, copy=False)
         np.clip(a, 0, self.MAX_VAL - 1, out=a)
@@ -70,7 +72,7 @@ class L2Spectrum(rogue.interfaces.stream.Slave,
             hi_cnt      = np.bincount(hi_bins_rel, minlength=self.NB_HI)
             self._counts[self.NB_LO:] = hi_cnt[:self.NB_HI]
 
-        # 组装输出：32B头 + 1460*u32
+        # Assemble and output 
         out_len = self.HEAD_IN + self.NBINS * 4
         out_buf = bytearray(out_len)
         out_buf[:self.HEAD_IN] = orig32

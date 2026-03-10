@@ -2,11 +2,11 @@ import time
 import rogue.interfaces.stream
 
 # This Function is used for the samplers , both the L0 sampler and the L1 sampler;
-# Fetch and receive a sample each time; 
+# Fetch and receive a sample each second; 
 class StreamSampler(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 	HEAD_LEN  = 32
-	NY        = 176
-	NX        = 768
+	NY        = 176 # We always discard the two rows, reduce from 178 to 176; 
+	NX        = 768 # The columns is still kept as 768 ; 
 	U16_COUNT = NY * NX                  # 135,168
 	DATA_LEN  = U16_COUNT * 2   
     

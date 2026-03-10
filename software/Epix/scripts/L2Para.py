@@ -10,13 +10,13 @@ class L2Para(rogue.interfaces.stream.Slave,
   of the 122keV events, the distribution has worse;
 	"""
 
-	# 输入/几何
+	# The basic parameters 
 	HEAD_IN   = 32
 	NY, NX    = 176, 768
 	NPIX      = NY * NX                 # 135,168
 	DATA_IN   = NPIX * 2                # 270,336 B
 
-	# 8x8 Blocks
+	# 8x8 Blocks, this is different from the 4*4 block of the 14keV; 
 	BY, BX    = NY // 8, NX // 8        # 22, 96
 	NBLOCK    = BY * BX                 # 2,112
 
@@ -33,10 +33,10 @@ class L2Para(rogue.interfaces.stream.Slave,
 		self.scale        = int(scale)
 		self.group_frames = max(1, int(group_frames))
 
-		# 组内累计状态
+		# The acculmulated situation; 
 		self._acc        = np.zeros((self.BY, self.BX), dtype=np.uint32)
 		self._acc_frames = 0
-		self._orig32     = None  # 本组第一帧的 32B 原头
+		self._orig32     = None  # The 122keV does not care about the direction of the movement; 
 
 		# Update the thresholds 
 		self._update_thresholds()
