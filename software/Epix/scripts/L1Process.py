@@ -6,6 +6,58 @@ from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import rogue.interfaces.stream
+from numba import njit
+
+
+@njit(cache=True)
+def _centroid_sum_u16_to_f32(arr_u2, thr_cs, use_ge, out_f32):
+    """
+    Input:
+      arr_u2 : (176,768) uint16
+      thr_cs : integer threshold
+      use_ge : bool
+      out_f32: (176,768) float32 output buffer
+
+    Behavior matches your previous centroid logic:
+      1. threshold all five pixels by thr_cs
+      2. centroid condition compares thresholded center to thresholded neighbors
+      3. output center+left+right+up+down at centroid pixels
+      4. output 0 elsewhere
+    """
+    ny, nx = arr_u2.shape
+
+    # clear full output
+    for y in range(ny):
+        for x in range(nx):
+            out_f32[y, x] = 0.0
+
+    for y in range(1, ny - 1):
+        for x in range(1, nx - 1):
+            c = arr_u2[y, x]
+            if c < thr_cs:
+                continue
+
+            l = arr_u2[y, x - 1]
+            r = arr_u2[y, x + 1]
+            u = arr_u2[y - 1, x]
+            d = arr_u2[y + 1, x]
+
+            zl = 0 if l < thr_cs else l
+            zr = 0 if r < thr_cs else r
+            zu = 0 if u < thr_cs else u
+            zd = 0 if d < thr_cs else d
+            zc = c
+
+            ok = True
+            if use_ge:
+                if not (zc >= zl and zc >= zr and zc >= zu and zc >= zd):
+                    ok = False
+            else:
+                if not (zc > zl and zc > zr and zc > zu and zc > zd):
+                    ok = False
+
+            if ok:
+                out_f32[y, x] = float(zc + zl + zr + zu + zd)
 
 
 class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
@@ -30,11 +82,10 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
     def __init__(self,
                  gain_path="/data/gain/gain.npy",
 
-                 # === dynamic gain ===
+                 # dynamic gain
                  dynamic_gain=False,
                  dynamic_gain_dir="/data/gain",
                  dynamic_gain_period_s=86400,
-                 # ====================
 
                  gain_scalar=None,
                  scale=256,
@@ -43,20 +94,19 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
                  round_mode='nearest',
 
                  # centroid
-                 enable_centroid=False,
+                 enable_centroid=True,
                  n2=15,
                  centroid_use_ge=False,
 
                  # threading
                  n_workers=None,
                  max_inflight=2048,
-                 drop_if_busy=False
-                 ):
+                 drop_if_busy=False):
 
         rogue.interfaces.stream.Slave.__init__(self)
         rogue.interfaces.stream.Master.__init__(self)
 
-        # === dynamic gain ===
+        # dynamic gain
         self.dynamic_gain = bool(dynamic_gain)
         self.dynamic_gain_period_s = int(dynamic_gain_period_s)
 
@@ -68,13 +118,13 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         self._gain_lock = threading.Lock()
         self._gain_mtime = None
 
-        # ---- gain settings ----
+        # gain settings
         self.SCALE = float(scale)
         self._input_gain_scalar = gain_scalar
         self.coeff = None
         self.coeff_scalar = None
 
-        # ---- processing settings ----
+        # processing settings
         self.clamp_min = int(clamp_min)
         self.clamp_max = int(clamp_max)
         self.round_mode = str(round_mode).lower()
@@ -83,24 +133,24 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         self.n2 = int(n2)
         self.centroid_use_ge = bool(centroid_use_ge)
 
-        # ---- initial gain load ----
+        # initial gain load
         self._load_gain(initial=True)
 
-        # ---- thread pool sizing ----
+        # thread pool sizing
         if n_workers is None:
             cpu = os.cpu_count() or 8
-            n_workers = max(4, min(16, cpu // 8))
+            n_workers = max(2, min(8, cpu // 8))
         self.n_workers = int(n_workers)
 
-        # ---- in-flight control ----
+        # in-flight control
         self.max_inflight = int(max_inflight)
         self.drop_if_busy = bool(drop_if_busy)
         self._sem = threading.Semaphore(self.max_inflight)
 
-        # ---- per-thread workspace ----
+        # per-thread workspace
         self._tls = threading.local()
 
-        # ---- ordering and sender thread ----
+        # ordering and sender thread
         self._futs = deque()
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -109,7 +159,13 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         self._sender = threading.Thread(target=self._sender_loop, daemon=True)
         self._sender.start()
 
-        # === dynamic gain watcher ===
+        # warm up numba once so the first real frame does not pay the compile cost
+        if self.enable_centroid:
+            dummy_in = np.zeros((self.NY, self.NX), dtype=np.uint16)
+            dummy_out = np.zeros((self.NY, self.NX), dtype=np.float32)
+            _centroid_sum_u16_to_f32(dummy_in, max(0, 4 * self.n2), self.centroid_use_ge, dummy_out)
+
+        # dynamic gain watcher
         if self.dynamic_gain:
             self._gain_thread = threading.Thread(
                 target=self._gain_watcher,
@@ -122,7 +178,6 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
     # dynamic gain
     # ------------------------------------------------------------------
     def _load_gain(self, initial=False):
-        # file-based gain
         if self.gain_path is not None:
             try:
                 gain_mtime = os.path.getmtime(self.gain_path)
@@ -150,7 +205,6 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
             print(f"[L1Process] gain loaded: {os.path.basename(self.gain_path)}")
             return
 
-        # scalar fallback
         if self._input_gain_scalar is not None:
             gs = float(self._input_gain_scalar)
             if not np.isfinite(gs) or gs <= 0:
@@ -184,63 +238,20 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
             pass
 
         ws = _WS()
-        ws.work_i32 = np.empty((self.NY, self.NX), dtype=np.int32)
-        ws.out_i32  = np.empty((self.NY, self.NX), dtype=np.int32)
-        ws.cmask    = np.empty((self.NY - 2, self.NX - 2), dtype=bool)
         ws.work_f32 = np.empty((self.NY, self.NX), dtype=np.float32)
 
         self._tls.ws = ws
         return ws
 
     # ------------------------------------------------------------------
-    # centroid
-    # ------------------------------------------------------------------
-    def _centroid_4n_sum_thr(self, work_i32, out_i32, cmask, thr_cs):
-        """
-        Threshold first:
-            work_i32[work_i32 < thr_cs] = 0
-
-        Centroid condition:
-            center > left,right,up,down
-        or:
-            center >= left,right,up,down   if centroid_use_ge=True
-
-        Output value at centroid:
-            center + left + right + up + down
-
-        Non-centroid pixels:
-            0
-        """
-        out_i32.fill(0)
-        work_i32[work_i32 < thr_cs] = 0
-
-        c = work_i32[1:-1, 1:-1]
-        l = work_i32[1:-1, 0:-2]
-        r = work_i32[1:-1, 2:  ]
-        u = work_i32[0:-2, 1:-1]
-        d = work_i32[2:  , 1:-1]
-
-        cmask[:] = (c != 0)
-        if self.centroid_use_ge:
-            cmask &= (c >= l) & (c >= r) & (c >= u) & (c >= d)
-        else:
-            cmask &= (c >  l) & (c >  r) & (c >  u) & (c >  d)
-
-        acc = out_i32[1:-1, 1:-1]
-        acc[:] = c
-        acc += l
-        acc += r
-        acc += u
-        acc += d
-        acc[~cmask] = 0
-
-    # ------------------------------------------------------------------
     # heavy worker
     # ------------------------------------------------------------------
     def _process_buf(self, buf):
         arr_u2 = np.frombuffer(
-            buf, dtype=np.dtype('<u2'),
-            count=self.U16_COUNT, offset=self.HEAD_LEN
+            buf,
+            dtype=np.dtype('<u2'),
+            count=self.U16_COUNT,
+            offset=self.HEAD_LEN
         ).reshape(self.NY, self.NX)
 
         ws = self._ws()
@@ -251,10 +262,8 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 
         # centroid on L0 output
         if self.enable_centroid:
-            ws.work_i32[:] = arr_u2
-            thr_cs = max(0, min(0x7FFFFFFF, 4 * self.n2))
-            self._centroid_4n_sum_thr(ws.work_i32, ws.out_i32, ws.cmask, thr_cs)
-            ws.work_f32[:] = ws.out_i32
+            thr_cs = max(0, 4 * self.n2)
+            _centroid_sum_u16_to_f32(arr_u2, thr_cs, self.centroid_use_ge, ws.work_f32)
         else:
             ws.work_f32[:] = arr_u2
 
