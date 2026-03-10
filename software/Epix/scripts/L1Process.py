@@ -239,7 +239,7 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         # centroid on L0 output
         if self.enable_centroid:
             thr_cs = max(0, 4 * self.n2)
-            _centroid_sum_u16_to_f32(arr_u2, thr_cs, self.centroid_use_ge, ws.work_f32)
+            _centroid_sum_u16_to_f32(arr_u2, thr_cs, ws.work_f32)
         else:
             ws.work_f32[:] = arr_u2
 
