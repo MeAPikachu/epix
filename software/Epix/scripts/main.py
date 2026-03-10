@@ -233,7 +233,8 @@ if (PRINT_VERBOSE): pyrogue.streamTap(pgpVc0, dbgData)
 
 # Create the automatic data path for the raw data, sample data and the real data; 
 raw_path = Board_utils.make_data_path("/data/raw/",base_name='raw')
-data_path = Board_utils.make_data_path("/data/",base_name='data')
+# The processed is stored at the /data/share that everyone could access; 
+data_path = Board_utils.make_data_path("/data/share",base_name='data')
 L0_path = Board_utils.make_data_path("/data/L0/",base_name='L0')
 L1_path = Board_utils.make_data_path("/data/L1/",base_name='L1')
 S2_path = Board_utils.make_data_path("/data/S2/",base_name='S2')
