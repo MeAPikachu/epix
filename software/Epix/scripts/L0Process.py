@@ -16,13 +16,6 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
       - dynamic column common-mode correction
       - bad-pixel filtering
       - clamp and write back to uint16
-
-    Optional centroid + charge sharing (only when enable_centroid=True):
-      - Find local-maximum centroid pixels (interior only)
-      - Center pixel must satisfy center >= thr_cs (else not a centroid and no output)
-      - Charge sum = sum of {center, up, down, left, right} but each contributor
-        is included ONLY if that pixel >= thr_cs (implemented by in-place thresholding)
-      - Non-centroid pixels output 0
     """
 
     HEAD_LEN  = 32
@@ -47,12 +40,7 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
                  clamp_min=0, clamp_max=0xFFFF,
                  n_workers=None,
                  max_inflight=2048,
-                 drop_if_busy=False,
-
-                 # === centroid/charge sharing (ADD-ON; default OFF) ===
-                 enable_centroid=False,
-                 n2=15,                      # thr_cs = 4*n2
-                 centroid_use_ge=False       # >= neighbors vs > neighbors
+                 drop_if_busy=False
                  ):
 
         rogue.interfaces.stream.Slave.__init__(self)
@@ -72,21 +60,15 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         self._calib_lock = threading.Lock()
         self._dark_mtime = None
         self._filter_mtime = None
-        # =====================
 
         # ---- Load calib initially ----
         self._load_calib(initial=True)
 
-        # ---- Parameters (original) ----
+        # ---- Parameters ----
         self.n1 = int(n1)
         self.enable_common_mode = bool(enable_common_mode)
         self.clamp_min = int(clamp_min)
         self.clamp_max = int(clamp_max)
-
-        # ---- Centroid params (only used when enabled) ----
-        self.enable_centroid = bool(enable_centroid)
-        self.n2 = int(n2)
-        self.centroid_use_ge = bool(centroid_use_ge)
 
         # ---- Thread pool sizing ----
         if n_workers is None:
@@ -119,7 +101,6 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
                 daemon=True,
             )
             self._calib_thread.start()
-        # ==============================
 
     # ------------------------------------------------------------------
     # dynamic calib
@@ -183,16 +164,9 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
             pass
 
         ws = _WS()
-
-        # === EXACTLY like original, always ===
         ws.work_i32 = np.empty((self.NY, self.NX), dtype=np.int32)
         ws.mask_2d  = np.empty((self.NY, self.NX), dtype=bool)
         ws.col_med  = np.empty(self.NX, dtype=np.int32)
-
-        # === centroid buffers ONLY when enabled ===
-        if self.enable_centroid:
-            ws.out_i32     = np.empty((self.NY, self.NX), dtype=np.int32)
-            ws.cmask_core  = np.empty((self.NY - 2, self.NX - 2), dtype=bool)
 
         self._tls.ws = ws
         return ws
@@ -214,43 +188,6 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         w2d -= col_med
 
     # ------------------------------------------------------------------
-    # centroid + charge-sharing threshold (only called when enabled)
-    # ------------------------------------------------------------------
-    def _centroid_4n_sum_thr(self, work_i32, out_i32, cmask_core, thr_cs):
-        """
-        In-place thresholding:
-        - work_i32[work_i32 < thr_cs] = 0   (so below-threshold never contributes)
-        - centroid requires center >= thr_cs (equivalently center != 0 after thresholding)
-        - sum = c+l+r+u+d on thresholded image
-        - output only at centroid pixels
-        """
-        out_i32.fill(0)
-
-        # threshold in-place
-        work_i32[work_i32 < thr_cs] = 0
-
-        c = work_i32[1:-1, 1:-1]
-        l = work_i32[1:-1, 0:-2]
-        r = work_i32[1:-1, 2:  ]
-        u = work_i32[0:-2, 1:-1]
-        d = work_i32[2:  , 1:-1]
-
-        cmask_core[:] = (c != 0)
-        if self.centroid_use_ge:
-            cmask_core &= (c >= l) & (c >= r) & (c >= u) & (c >= d)
-        else:
-            cmask_core &= (c >  l) & (c >  r) & (c >  u) & (c >  d)
-
-        acc = out_i32[1:-1, 1:-1]
-        acc[:] = c
-        acc += l
-        acc += r
-        acc += u
-        acc += d
-
-        acc[~cmask_core] = 0
-
-    # ------------------------------------------------------------------
     # heavy worker
     # ------------------------------------------------------------------
     def _process_buf(self, buf):
@@ -262,7 +199,6 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         ws = self._ws()
         work_i32 = ws.work_i32
 
-        # snapshot calib (no lock in hot path)
         with self._calib_lock:
             dark = self.dark_i32
             bad_mask = self.bad_mask
@@ -277,18 +213,8 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         if bad_mask is not None:
             work_i32[bad_mask] = 0
 
-        # ===== ONLY ADDITION: centroid branch =====
-        if self.enable_centroid:
-            thr_cs = max(0, min(0x7FFFFFFF, 4 * self.n2))
-            self._centroid_4n_sum_thr(work_i32, ws.out_i32, ws.cmask_core, thr_cs)
-
-            np.clip(ws.out_i32, self.clamp_min, self.clamp_max, out=ws.out_i32)
-            arr_u2[:, :] = ws.out_i32.astype(np.uint16, copy=False)
-        else:
-            # ===== EXACT original block (unchanged) =====
-            np.clip(work_i32, self.clamp_min, self.clamp_max, out=work_i32)
-            arr_u2[:, :] = work_i32.astype(np.uint16, copy=False)
-        # ==========================================
+        np.clip(work_i32, self.clamp_min, self.clamp_max, out=work_i32)
+        arr_u2[:, :] = work_i32.astype(np.uint16, copy=False)
 
         ts_s = int(time.time())
         struct.pack_into('<I', buf, 28, ts_s & 0xFFFFFFFF)
