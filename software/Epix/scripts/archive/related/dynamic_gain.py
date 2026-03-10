@@ -202,8 +202,8 @@ def main():
     
     fout_npy = os.path.join(out_filter_dir, "filter.npy")
     fout2_npy = os.path.join(out_filter_dir, "filter_{}.npy".format(ts)) 
-    np.save(fout_npy, goodfilter.astype(np.float32))
-    np.save(fout2_npy, goodfilter.astype(np.float32))
+    np.save(fout_npy, goodfilter.astype(bool))
+    np.save(fout2_npy, goodfilter.astype(bool))
 
 if __name__ == "__main__":
     main()
