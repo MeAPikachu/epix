@@ -11,22 +11,8 @@ from numba import njit
 
 @njit(cache=True)
 def _centroid_sum_u16_to_f32(arr_u2, thr_cs, use_ge, out_f32):
-    """
-    Input:
-      arr_u2 : (176,768) uint16
-      thr_cs : integer threshold
-      use_ge : bool
-      out_f32: (176,768) float32 output buffer
-
-    Behavior matches your previous centroid logic:
-      1. threshold all five pixels by thr_cs
-      2. centroid condition compares thresholded center to thresholded neighbors
-      3. output center+left+right+up+down at centroid pixels
-      4. output 0 elsewhere
-    """
     ny, nx = arr_u2.shape
 
-    # clear full output
     for y in range(ny):
         for x in range(nx):
             out_f32[y, x] = 0.0
@@ -46,18 +32,13 @@ def _centroid_sum_u16_to_f32(arr_u2, thr_cs, use_ge, out_f32):
             zr = 0 if r < thr_cs else r
             zu = 0 if u < thr_cs else u
             zd = 0 if d < thr_cs else d
-            zc = c
 
-            ok = True
             if use_ge:
-                if not (zc >= zl and zc >= zr and zc >= zu and zc >= zd):
-                    ok = False
+                if c >= zl and c >= zr and c >= zu and c >= zd:
+                    out_f32[y, x] = float(c + zl + zr + zu + zd)
             else:
-                if not (zc > zl and zc > zr and zc > zu and zc > zd):
-                    ok = False
-
-            if ok:
-                out_f32[y, x] = float(zc + zl + zr + zu + zd)
+                if c > zl and c > zr and c > zu and c > zd:
+                    out_f32[y, x] = float(c + zl + zr + zu + zd)
 
 
 class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
