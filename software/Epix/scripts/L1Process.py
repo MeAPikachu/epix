@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import rogue.interfaces.stream
-from numba import njit
+from numba import njit, prange
 
 
 @njit(cache=True)
