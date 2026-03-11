@@ -62,12 +62,12 @@ class L2Para(rogue.interfaces.stream.Slave,
 		mv = memoryview(out_buf)
 		np.frombuffer(mv[self.HEAD_IN:], dtype='<u4', count=self.NBLOCK)[:] = self._acc.reshape(-1)
 
-		# 发送
+		# Sent
 		f = self._reqFrame(out_len, True)
 		f.write(out_buf, 0)
 		self._sendFrame(f)
 
-		# 重置累计
+		# Reset the data; 
 		self._acc.fill(0)
 		self._acc_frames = 0
 		self._orig32 = None

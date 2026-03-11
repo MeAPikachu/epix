@@ -5,7 +5,10 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import rogue.interfaces.stream
 
-
+# This is also called all information backup;
+# Which is connected to the output of the L0; 
+# In principle, we could get the original data out from this L1;
+# The correlated file is readL1Compress.py
 class L1BitmaskCompressor(rogue.interfaces.stream.Slave,
                           rogue.interfaces.stream.Master):
 

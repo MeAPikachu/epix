@@ -169,11 +169,29 @@ else:
 dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
 
 #pyrogue.streamConnect(pgpVc0, dataWriter.getChannel(0x1))
-l0 = L0Process(dark_path="/data/dark/dark_2D.npy",filter_path="/data/epix/software/Mossbauer/filter.npy",
-               n1=8, enable_common_mode=True,dynamic_calib=True)
+#The main stream processing; 
+scale=256
+l0 = L0Process(dark_path="/data/dark/dark_2D.npy",
+               filter_path="/data/dark/filter.npy",
+
+               enable_common_mode=True,
+               # Initial Setup;
+               
+               # Dynamic Calib(Background and filter1 )
+               dynamic_calib=True,
+               dynamic_calib_dir="/data/dark",
+               dynamic_filter_dir="/data/dark",
+               dynamic_calib_period_s=3600,
+               
+               # Common mode noise correction;
+               n1=8,
+               enable_common_mode=True)
 l1 = L1Process(gain_path="/data/epix/software/Mossbauer/gain.npy")
-l2 = L2Process(low_bin= 12.5, high_bin= 15.9)
-l3 = L3Process()
+
+l2 = L2Process(low_bin= 12.5, 
+               high_bin= 15.9,
+               scale=scale)
+l3 = L3Process(compression_ratio=400)
 
 # Main Data Stream
 pyrogue.streamConnect(pgpVc0, l0)

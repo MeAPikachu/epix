@@ -1,9 +1,9 @@
 # L1SpectrumTap.py
 import numpy as np
-import rogue.interfaces.stream  # 不用别名
+import rogue.interfaces.stream  
 
 
-# L2 Spectrum is a side stream, to 
+# L2 Spectrum is a side stream, Sample the frame and output it; 
 class L2Spectrum(rogue.interfaces.stream.Slave,
                     rogue.interfaces.stream.Master):
     """
@@ -73,6 +73,7 @@ class L2Spectrum(rogue.interfaces.stream.Slave,
             self._counts[self.NB_LO:] = hi_cnt[:self.NB_HI]
 
         # Assemble and output 
+        # Each bin includes 4Bytes, which is enough; 
         out_len = self.HEAD_IN + self.NBINS * 4
         out_buf = bytearray(out_len)
         out_buf[:self.HEAD_IN] = orig32

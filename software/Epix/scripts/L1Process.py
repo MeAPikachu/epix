@@ -6,10 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import rogue.interfaces.stream
-from numba import njit, prange
-
-
-from numba import njit, prange
+from numba import njit, prange, set_num_threads, get_num_threads
 
 
 @njit(cache=True, parallel=True, fastmath=True)
@@ -72,7 +69,7 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
                  # centroid
                  enable_centroid=True,
                  n2=15,
-                 centroid_use_ge=False,
+                 numba_threads=None,
 
                  # threading
                  n_workers=None,
@@ -107,7 +104,12 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 
         self.enable_centroid = bool(enable_centroid)
         self.n2 = int(n2)
-        self.centroid_use_ge = bool(centroid_use_ge)
+
+        # numba threads
+        self.numba_threads = numba_threads
+        if self.numba_threads is not None:
+            set_num_threads(int(self.numba_threads))
+            print(f"[L1Process] numba threads = {get_num_threads()}")
 
         # initial gain load
         self._load_gain(initial=True)
@@ -239,6 +241,7 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         # centroid on L0 output
         if self.enable_centroid:
             thr_cs = max(0, 4 * self.n2)
+            ws.work_f32.fill(0.0)
             _centroid_sum_u16_to_f32(arr_u2, thr_cs, ws.work_f32)
         else:
             ws.work_f32[:] = arr_u2

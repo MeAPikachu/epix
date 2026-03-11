@@ -31,7 +31,7 @@ class L0Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
                  # === dynamic calib ===
                  dynamic_calib=False,
                  dynamic_calib_dir="/data/dark",
-                 dynamic_filter_dir="/data/epix/software/Mossbauer",
+                 dynamic_filter_dir="/data/dark",
                  dynamic_calib_period_s=3600,
                  # =====================
 
