@@ -18,8 +18,8 @@ class epix :
                  fname: str,
                  nhead: int = 20,
                  nframe: int = 16936 // 2,
-                 nrow: int = 88,
-                 ncolumn: int = 96,
+                 nrow: int = 44,
+                 ncolumn: int = 48,
                  frequency: float = 1.0 ,
                  mean_gain: float=17.0
                  ) -> None:
