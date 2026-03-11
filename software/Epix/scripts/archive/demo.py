@@ -4,9 +4,9 @@
 #-----------------------------------------------------------------------------
 # File       : epix10kaDAQ.py evolved from evalBoard.py
 # Author     : Ryan Herbst, rherbst@slac.stanford.edu
-# Modified by: Dionisio Doering , Chengjie Jia chengjie@stanford.edu
+# Modified by: Dionisio Doering
 # Created    : 2016-09-29
-# Last update: 2025-09-24
+# Last update: 2017-02-01
 #-----------------------------------------------------------------------------
 # Description:
 # Rogue interface to ePix 10ka board
@@ -39,6 +39,42 @@ import testBridge
 import ePixViewer as vi
 import ePixFpga as fpga
 import argparse
+
+
+import numpy as np
+import rogue.interfaces.stream
+
+
+class AddOne16LEAfter40(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
+    HEAD_LEN = 40
+    DATA_LEN = 270_336                
+    U16_COUNT = DATA_LEN // 2   
+    
+    def __init__(self):
+        rogue.interfaces.stream.Slave.__init__(self)
+        rogue.interfaces.stream.Master.__init__(self)
+
+    def _acceptFrame(self, frame):
+        size = frame.getPayload()
+        buf = bytearray(size)
+        frame.read(buf, 0)
+
+        if size >= self.HEAD_LEN + self.DATA_LEN:
+            arr = np.frombuffer(buf, dtype='<u2',
+                                count=self.U16_COUNT,
+                                offset=self.HEAD_LEN)
+            arr += 1
+        else:
+            span = max(0, size - self.HEAD_LEN)
+            cnt  = span // 2
+            if cnt:
+                np.frombuffer(buf, dtype='<u2', count=cnt, offset=self.HEAD_LEN)[:] += 1
+
+
+        out = self._reqFrame(size, True)
+        out.write(buf, 0)
+        self._sendFrame(out)
+
 
 try:
     from PyQt5.QtWidgets import *
@@ -93,7 +129,7 @@ parser.add_argument(
     type     = str,
     required = False,
     default  = '/dev/datadev_0',
-    help     = "PGP devide (default /dev/datadev_0)",
+    help     = "PGP device (default /dev/datadev_0)",
 )  
 
 parser.add_argument(
@@ -141,8 +177,8 @@ if args.simulation:
    pgpVc2 = rogue.interfaces.stream.TcpClient('localhost',8004)
    pgpVc3 = rogue.interfaces.stream.TcpClient('localhost',8006)
 else:
-   pgpVc0 = rogue.hardware.pgp.PgpCard(args.pgp,0,1) # Data
-   pgpVc1 = rogue.hardware.pgp.PgpCard(args.pgp,0,0) # Registers for ePix board
+   pgpVc1 = rogue.hardware.pgp.PgpCard(args.pgp,0,0) # Data & cmds
+   pgpVc0 = rogue.hardware.pgp.PgpCard(args.pgp,0,1) # Registers for ePix board
    pgpVc2 = rogue.hardware.pgp.PgpCard(args.pgp,0,2) # PseudoScope
    pgpVc3 = rogue.hardware.pgp.PgpCard(args.pgp,0,3) # Monitoring (Slow ADC)
    print("")
@@ -152,7 +188,14 @@ else:
 # Add data stream to file as channel 1
 # File writer
 dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
-pyrogue.streamConnect(pgpVc0, dataWriter.getChannel(0x1))
+
+#Main Frame Data; 
+#pyrogue.streamConnect(pgpVc0, dataWriter.getChannel(0x1))
+adder = AddOne16LEAfter40()
+pyrogue.streamConnect(pgpVc0, adder)
+pyrogue.streamConnect(adder, dataWriter.getChannel(0x1))
+
+
 # Add pseudoscope to file writer
 pyrogue.streamConnect(pgpVc2, dataWriter.getChannel(0x2))
 pyrogue.streamConnect(pgpVc3, dataWriter.getChannel(0x3))

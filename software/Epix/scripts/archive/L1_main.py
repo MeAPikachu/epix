@@ -4,9 +4,9 @@
 #-----------------------------------------------------------------------------
 # File       : epix10kaDAQ.py evolved from evalBoard.py
 # Author     : Ryan Herbst, rherbst@slac.stanford.edu
-# Modified by: Dionisio Doering , Chengjie Jia chengjie@stanford.edu
+# Modified by: Chengjie Jia
 # Created    : 2016-09-29
-# Last update: 2025-09-24
+# Last update: 2017-02-01
 #-----------------------------------------------------------------------------
 # Description:
 # Rogue interface to ePix 10ka board
@@ -32,6 +32,7 @@ import surf.protocols.ssi
 import threading
 import signal
 import atexit
+import os 
 import yaml
 import time
 import sys
@@ -39,6 +40,14 @@ import testBridge
 import ePixViewer as vi
 import ePixFpga as fpga
 import argparse
+
+from L0Process import L0Process
+from L1BitmaskCompressor import L1BitmaskCompressor
+from L1Process import L1Process
+from StreamSampler import StreamSampler
+
+from Board_utils import EpixBoard,MyRunControl,MbDebug
+import Board_utils 
 
 try:
     from PyQt5.QtWidgets import *
@@ -62,7 +71,6 @@ parser.add_argument(
     default  = False,
     help     = "Enable auto-polling",
 ) 
-
 parser.add_argument(
     "--initRead", 
     type     = argBool,
@@ -70,7 +78,6 @@ parser.add_argument(
     default  = False,
     help     = "Enable read all variables at start",
 )  
-
 parser.add_argument(
     "--viewer", 
     type     = argBool,
@@ -78,7 +85,6 @@ parser.add_argument(
     default  = True,
     help     = "Start viewer",
 )  
-
 parser.add_argument(
     "--gui", 
     type     = argBool,
@@ -86,16 +92,20 @@ parser.add_argument(
     default  = True,
     help     = "Start control GUI",
 )  
-
-
+parser.add_argument(
+    "--yml", 
+    type     = str,
+    required = False,
+    default  = '../yml/epix10ka_mossbauer_300Hz.yml',
+    help     = "Default yml is the mossbauer 300Hz",
+)  
 parser.add_argument(
     "--pgp", 
     type     = str,
     required = False,
     default  = '/dev/datadev_0',
-    help     = "PGP devide (default /dev/datadev_0)",
+    help     = "PGP device (default /dev/datadev_0)",
 )  
-
 parser.add_argument(
     "--verbose", 
     type     = argBool,
@@ -103,7 +113,6 @@ parser.add_argument(
     default  = False,
     help     = "Print debug info",
 )  
-
 parser.add_argument(
     "--simulation", 
     type     = argBool,
@@ -111,7 +120,6 @@ parser.add_argument(
     default  = False,
     help     = "Connect to VCS simulation",
 )  
-
 parser.add_argument(
     "--asic_rev", 
     type     = int,
@@ -119,11 +127,8 @@ parser.add_argument(
     default  = 1,
     help     = "ASIC rev 1 or 2",
 )
-
-
 # Get the arguments
 args = parser.parse_args()
-
 #############################################
 # Define if the GUI is started (1 starts it)
 START_GUI = args.gui
@@ -141,8 +146,8 @@ if args.simulation:
    pgpVc2 = rogue.interfaces.stream.TcpClient('localhost',8004)
    pgpVc3 = rogue.interfaces.stream.TcpClient('localhost',8006)
 else:
+   pgpVc1 = rogue.hardware.pgp.PgpCard(args.pgp,0,0) # Registers 
    pgpVc0 = rogue.hardware.pgp.PgpCard(args.pgp,0,1) # Data
-   pgpVc1 = rogue.hardware.pgp.PgpCard(args.pgp,0,0) # Registers for ePix board
    pgpVc2 = rogue.hardware.pgp.PgpCard(args.pgp,0,2) # PseudoScope
    pgpVc3 = rogue.hardware.pgp.PgpCard(args.pgp,0,3) # Monitoring (Slow ADC)
    print("")
@@ -152,7 +157,38 @@ else:
 # Add data stream to file as channel 1
 # File writer
 dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
-pyrogue.streamConnect(pgpVc0, dataWriter.getChannel(0x1))
+
+#pyrogue.streamConnect(pgpVc0, dataWriter.getChannel(0x1))
+l0 = L0Process(dark_path="/data/epix/software/Mossbauer/dark_2D.npy",filter_path="/data/epix/software/Mossbauer/filter.npy",
+               n1=8, enable_common_mode=True)
+l1 = L1Process(gain_path="/data/epix/software/Mossbauer/gain.npy")
+
+pyrogue.streamConnect(pgpVc0, l0)
+pyrogue.streamConnect(l0,l1)
+pyrogue.streamConnect(l0, dataWriter.getChannel(0x1))
+
+# Create the Writer for sampling; 
+rawWriter = pyrogue.utilities.fileio.StreamWriter(name='rawWriter')
+L0Writer = pyrogue.utilities.fileio.StreamWriter(name='L0Writer')
+L1Writer= pyrogue.utilities.fileio.StreamWriter(name='L1Writer') 
+
+
+# Sampler for raw data; 
+sampler = StreamSampler(min_interval=1.0)
+pyrogue.streamTap(pgpVc0,sampler)
+pyrogue.streamConnect(sampler,rawWriter.getChannel(0x1))
+
+# Sampler for L0 data; 
+L0sampler = StreamSampler(min_interval=1.0)
+pyrogue.streamTap(l0,L0sampler)
+pyrogue.streamConnect(L0sampler,L0Writer.getChannel(0x1))
+
+# All information Preserve; 
+l1bm = L1BitmaskCompressor(threshold=50, emit_empty=False)
+pyrogue.streamTap(l0, l1bm)
+pyrogue.streamConnect(l1bm, L1Writer.getChannel(0x1))
+
+
 # Add pseudoscope to file writer
 pyrogue.streamConnect(pgpVc2, dataWriter.getChannel(0x2))
 pyrogue.streamConnect(pgpVc3, dataWriter.getChannel(0x3))
@@ -164,143 +200,71 @@ pyrogue.streamConnect(cmd, pgpVc0)
 srp = rogue.protocols.srp.SrpV0()
 pyrogue.streamConnectBiDir(pgpVc1,srp)
 
-# Add configuration stream to file as channel 0
-# Removed to reduce amount of data going to file
-#pyrogue.streamConnect(ePixBoard,dataWriter.getChannel(0x0))
-
-## Add microblaze console stream to file as channel 2
-#pyrogue.streamConnect(pgpVc3,dataWriter.getChannel(0x2))
-
-# PRBS Receiver as secdonary receiver for VC1
-#prbsRx = pyrogue.utilities.prbs.PrbsRx('prbsRx')
-#pyrogue.streamTap(pgpVc1,prbsRx)
-#ePixBoard.add(prbsRx)
-
-# Microblaze console monitor add secondary tap
-#mbcon = MbDebug()
-#pyrogue.streamTap(pgpVc3,mbcon)
-
-#br = testBridge.Bridge()
-#br._setSlave(srp)
-
-#ePixBoard.add(surf.SsiPrbsTx.create(memBase=srp1,offset=0x00000000*4))
-
-# Create epics node
-#epics = pyrogue.epics.EpicsCaServer('rogueTest',ePixBoard)
-#epics.start()
-
-
-#############################################
-# Microblaze console printout
-#############################################
-class MbDebug(rogue.interfaces.stream.Slave):
-
-    def __init__(self):
-        rogue.interfaces.stream.Slave.__init__(self)
-        self.enable = False
-
-    def _acceptFrame(self,frame):
-        if self.enable:
-            p = bytearray(frame.getPayload())
-            frame.read(p,0)
-            print('-------- Microblaze Console --------')
-            print(p.decode('utf-8'))
-
-#######################################
-# Custom run control
-#######################################
-class MyRunControl(pyrogue.RunControl):
-    def __init__(self,name):
-        pyrogue.RunControl.__init__(self,name, description='Run Controller ePix 10ka',  rates={1:'1 Hz', 2:'2 Hz', 4:'4 Hz', 8:'8 Hz', 10:'10 Hz', 30:'30 Hz', 60:'60 Hz', 120:'120 Hz'})
-        self._thread = None
-
-    def _setRunState(self,dev,var,value,changed):
-        if changed: 
-            if self.runState.get(read=False) == 'Running': 
-                self._thread = threading.Thread(target=self._run) 
-                self._thread.start() 
-            else: 
-                self._thread.join() 
-                self._thread = None 
-
-
-    def _run(self):
-        self.runCount.set(0) 
-        self._last = int(time.time()) 
- 
- 
-        while (self.runState.value() == 'Running'): 
-            delay = 1.0 / ({value: key for key,value in self.runRate.enum.items()}[self._runRate]) 
-            time.sleep(delay) 
-            self._root.ssiPrbsTx.oneShot() 
-  
-            self._runCount += 1 
-            if self._last != int(time.time()): 
-                self._last = int(time.time()) 
-                self.runCount._updated() 
-
-
-            
-##############################
-# Set base
-##############################
-class EpixBoard(pyrogue.Root):
-    def __init__(self, guiTop, cmd, dataWriter, srp, asic_rev, **kwargs):
-        super().__init__(name = 'ePixBoard',description = 'ePix 10ka Board', **kwargs)
-        #self.add(MyRunControl('runControl'))
-        self.add(dataWriter)
-        self.guiTop = guiTop
-
-        @self.command()
-        def Trigger():
-            cmd.sendCmd(0, 0)
-
-        # Add Devices
-        self.add(fpga.Epix10ka(name='Epix10ka', asic_rev=asic_rev, offset=0, memBase=srp, hidden=False, enabled=True))
-        self.add(pyrogue.RunControl(name = 'runControl', description='Run Controller ePix 10ka', cmd=self.Trigger, rates={1:'1 Hz', 2:'2 Hz', 4:'4 Hz', 8:'8 Hz', 10:'10 Hz', 30:'30 Hz', 60:'60 Hz', 120:'120 Hz'}))
-        
-
-        
-
-
-# debug
-#mbcon = MbDebug()
-#pyrogue.streamTap(pgpVc0,mbcon)
-
-#mbcon1 = MbDebug()
-#pyrogue.streamTap(pgpVc1,mbcon)
-
-#mbcon2 = MbDebug()
-#pyrogue.streamTap(pgpVc3,mbcon)
-
+# The debug function is just to output the head of data;  
 if (PRINT_VERBOSE): dbgData = rogue.interfaces.stream.Slave()
 if (PRINT_VERBOSE): dbgData.setDebug(60, "DATA[{}]".format(0))
 if (PRINT_VERBOSE): pyrogue.streamTap(pgpVc0, dbgData)
 
+# Create the automatic data path for the raw data, sample data and the real data; 
+raw_path = Board_utils.make_data_path("/data/raw/")
+data_path = Board_utils.make_data_path("/data/")
+L0_path = Board_utils.make_data_path("/data/L0/")
+L1_path = Board_utils.make_data_path("/data/L1/")
 
-# Create GUI
+
+# Create Gui
+# The command is the software trigger system; 
 appTop = QApplication(sys.argv)
 guiTop = pyrogue.gui.GuiTop(group = 'ePix10kaGui')
 ePixBoard = EpixBoard(guiTop, cmd, dataWriter, srp, args.asic_rev)
+
+# Add Raw Writer and L0 Writer to the board for sampling;
+ePixBoard.add(rawWriter)
+ePixBoard.add(L0Writer)
+ePixBoard.add(L1Writer)
 ePixBoard.start()
+
+# Load the mossbauer yaml file; 
+ePixBoard.LoadConfig(args.yml)
+time.sleep(0.2)
+ePixBoard.LoadConfig(args.yml)
+time.sleep(0.2)
+
+#Data Path;
+ePixBoard.dataWriter.DataFile.set(data_path)
+ePixBoard.dataWriter._writer.setMaxSize(5*1024 * 1024**2)
+ePixBoard.dataWriter.Open.set(True) 
+
+# Enable the parallel raw record 
+ePixBoard.rawWriter.DataFile.set(raw_path)
+ePixBoard.rawWriter._writer.setMaxSize(500 * 1024**2)
+ePixBoard.rawWriter.Open.set(True) 
+rawWriter._writer.open(raw_path)
+
+# Enable the Processed L0 record 
+ePixBoard.L0Writer.DataFile.set(L0_path)
+ePixBoard.L0Writer._writer.setMaxSize(500 * 1024**2)
+ePixBoard.L0Writer.Open.set(True) 
+L0Writer._writer.open(L0_path)
+
+# Enable the Bitmask L1 compressor
+ePixBoard.L1Writer.DataFile.set(L1_path)
+ePixBoard.L1Writer._writer.setMaxSize(5*1024 * 1024**2)
+ePixBoard.L1Writer.Open.set(True) 
+L1Writer._writer.open(L1_path)
+
+# GUI
 guiTop.addTree(ePixBoard)
 guiTop.resize(1000,800)
-
 # Viewer gui
 if START_VIEWER:
    gui = vi.Window(cameraType = 'ePix10ka')
    gui.eventReader.frameIndex = 0
    #gui.eventReaderImage.VIEW_DATA_CHANNEL_ID = 0
    gui.setReadDelay(0)
-   pyrogue.streamTap(pgpVc0, gui.eventReader) 
+   pyrogue.streamTap(l0, gui.eventReader) 
    pyrogue.streamTap(pgpVc2, gui.eventReaderScope)# PseudoScope
    pyrogue.streamTap(pgpVc3, gui.eventReaderMonitoring) # Slow Monitoring
-
-# Create mesh node (this is for remote control only, no data is shared with this)
-#mNode = pyrogue.mesh.MeshNode('rogueTest',iface='eth0',root=ePixBoard)
-#mNode = pyrogue.mesh.MeshNode('rogueEpix10ka',iface='eth0',root=None)
-#mNode.setNewTreeCb(guiTop.addTree)
-#mNode.start()
 
 
 # Run gui
@@ -313,7 +277,4 @@ def stop():
 #    epics.stop()
     ePixBoard.stop()
     exit()
-
-# Start with: ipython -i scripts/epix10kaDAQ.py for interactive approach
-print("Started rogue mesh and epics V3 server. To exit type stop()")
 

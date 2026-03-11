@@ -141,8 +141,8 @@ if args.simulation:
    pgpVc2 = rogue.interfaces.stream.TcpClient('localhost',8004)
    pgpVc3 = rogue.interfaces.stream.TcpClient('localhost',8006)
 else:
-   pgpVc0 = rogue.hardware.pgp.PgpCard(args.pgp,0,1) # Data
-   pgpVc1 = rogue.hardware.pgp.PgpCard(args.pgp,0,0) # Registers for ePix board
+   pgpVc0 = rogue.hardware.pgp.PgpCard(args.pgp,0,0) # Data
+   pgpVc1 = rogue.hardware.pgp.PgpCard(args.pgp,0,1) # Registers for ePix board
    pgpVc2 = rogue.hardware.pgp.PgpCard(args.pgp,0,2) # PseudoScope
    pgpVc3 = rogue.hardware.pgp.PgpCard(args.pgp,0,3) # Monitoring (Slow ADC)
    print("")

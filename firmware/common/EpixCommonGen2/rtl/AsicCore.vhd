@@ -159,9 +159,33 @@ architecture rtl of AsicCore is
    -- ADC signals
    signal adcValid         : slv(19 downto 0);
    signal adcData          : Slv16Array(19 downto 0);
+<<<<<<< HEAD
    signal mps_meta, mps_sync : std_logic := '0';  
+=======
+
+   -- record ;
+   signal daq_meta, daq_sync : sl := '0';
+   signal run_meta, run_sync : sl := '0';
+   signal run_sync_d   : std_logic := '0';
+>>>>>>> tg
 begin
-   
+
+   process(sysClk)
+   begin
+      if rising_edge(sysClk) then
+    
+         daq_meta <= daqTrigger;  
+         daq_sync <= daq_meta;
+
+         run_meta <= runTrigger;
+         run_sync <= run_meta;
+         run_sync_d <= run_sync;
+
+         iRunTrigger <= run_sync;
+         iDaqTrigger <= run_sync_d;
+      end if;
+   end process;
+
    axiRst <= iAxiRst;
    acqStartOut <= acqStart;
    
@@ -190,9 +214,11 @@ begin
 --      iInjAcq     when epixConfigExt.dbgReg = "01000" else     -- this is debug pulse to trigger exernal source within ACQ pulse
 --      '0';
    
+   
+
    -- Triggers in
-   iRunTrigger    <= runTrigger;
-   iDaqTrigger    <= daqTrigger;
+   --iRunTrigger    <= runTrigger;
+   --iDaqTrigger    <= daqTrigger;
    
    -- ASIC signals
    asicR0         <= iAsicR0;
@@ -379,7 +405,13 @@ begin
       envData        => envData,
       mAxisMaster    => dataAxisMaster,
       mAxisSlave     => dataAxisSlave,
+<<<<<<< HEAD
       mpsOut         => mps_sync,
+=======
+      mpsOut         => open,
+      runSync_i      => run_sync,  
+      daqSync_i      => daq_sync,
+>>>>>>> tg
       doutOut        => doutOut,
       doutRd         => doutRd,
       doutValid      => doutValid

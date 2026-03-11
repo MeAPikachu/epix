@@ -1,0 +1,6 @@
+Epix10ka-0xE2030002-20171010122734-mkwiatko-fa2017f0.bit.gz filter=lfs diff=lfs merge=lfs -text
+Epix10ka-0xE2030002-20171010122734-mkwiatko-fa2017f0.mcs.gz filter=lfs diff=lfs merge=lfs -text
+Epix10ka-0xE2040002-20210715112919-mkwiatko-328bae7.bit.gz filter=lfs diff=lfs merge=lfs -text
+Epix10ka-0xE2040002-20210715112919-mkwiatko-328bae7.mcs.gz filter=lfs diff=lfs merge=lfs -text
+Epix10ka-0xE2040002-20250929142624-root-dfb1b95.bit.gz filter=lfs diff=lfs merge=lfs -text
+Epix10ka-0xE2040002-20250929142624-root-dfb1b95.mcs.gz filter=lfs diff=lfs merge=lfs -text
