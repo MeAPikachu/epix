@@ -1,6 +1,6 @@
 # L2BlockCounter8x8_U32.py
 import numpy as np
-import rogue.interfaces.stream  # 不用别名
+import rogue.interfaces.stream  
 
 # L2 Para is used to calculate the distribution of the 122keV; 
 class L2Para(rogue.interfaces.stream.Slave,
@@ -58,7 +58,7 @@ class L2Para(rogue.interfaces.stream.Slave,
 		# Copy the original header 
 		out_buf[:self.HEAD_IN] = self._orig32
 
-		# 写 uint32 结果（LE）
+		# Write the result
 		mv = memoryview(out_buf)
 		np.frombuffer(mv[self.HEAD_IN:], dtype='<u4', count=self.NBLOCK)[:] = self._acc.reshape(-1)
 
@@ -75,33 +75,32 @@ class L2Para(rogue.interfaces.stream.Slave,
 	def _acceptFrame(self, frame):
 		size = frame.getPayload()
 		if size < self.HEAD_IN + self.DATA_IN:
-			return  # 丢弃非完整帧
+			return  # Discard some frames
 
 		buf = bytearray(size)
 		frame.read(buf, 0)
 
-		# 32B 头 + 图像（u16 LE）
+		# 32B Header + image 
 		if self._acc_frames == 0:
 			self._orig32 = bytes(buf[:self.HEAD_IN])
 		img = np.frombuffer(buf, dtype=np.dtype('<u2'),
 							count=self.NPIX, offset=self.HEAD_IN
 						   ).reshape(self.NY, self.NX)
 
-		# 阈值筛选（闭开区间 [lo, hi)）
-		# 注：img 为 u16，无需拷贝
+		# Define what is 122keV
 		m = (img >= self._lo) & (img < self._hi)
 
-		# 8×8 计数：reshape 为 (22,8,96,8) 在小块内求和 -> (22,96)
+		# 8×8 Counts
 		counts = m.reshape(self.BY, 8, self.BX, 8).sum(axis=(1, 3)).astype(np.uint32, copy=False)
 
-		# 组内累计
+		# Do the accumulation
 		self._acc += counts
 		self._acc_frames += 1
 
-		# 满组则输出
+		# Send the frame
 		if self._acc_frames >= self.group_frames:
 			self._emit_group()
 
-	# 在退出/停止前调用，输出最后一组
+	# When exit, send another frames
 	def flush(self):
 		self._emit_group()

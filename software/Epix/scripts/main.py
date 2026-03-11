@@ -173,7 +173,6 @@ dataWriter = pyrogue.utilities.fileio.StreamWriter(name = 'dataWriter')
 scale=256
 l0 = L0Process(dark_path="/data/dark/dark_2D.npy",
                filter_path="/data/dark/filter.npy",
-
                enable_common_mode=True,
                # Initial Setup;
                
@@ -186,12 +185,27 @@ l0 = L0Process(dark_path="/data/dark/dark_2D.npy",
                # Common mode noise correction;
                n1=8,
                enable_common_mode=True)
-l1 = L1Process(gain_path="/data/epix/software/Mossbauer/gain.npy")
+l1 = L1Process(gain_path="/data/epix/software/Mossbauer/gain.npy",
+               # Dynamic Gain
+               dynamic_gain=True,
+               dynamic_gain_dir="/data/gain",
+               dynamic_gain_period_s=86400,
+               
+               # Centroid Filter;
+               enable_centroid=True,
+               n2=15,
+               numba_threads=None,
+               
+               # Gain Scale
+               scale=scale
+               )
 
 l2 = L2Process(low_bin= 12.5, 
                high_bin= 15.9,
-               scale=scale)
-l3 = L3Process(compression_ratio=400)
+               scale=scale
+               )
+
+l3 = L3Process(compression_ratio=200)
 
 # Main Data Stream
 pyrogue.streamConnect(pgpVc0, l0)
@@ -210,7 +224,7 @@ L2PWriter = pyrogue.utilities.fileio.StreamWriter(name='L2PWriter',hidden=True)
 
 # Additional Channels for data writing; 
 # Sampler for raw data; 
-sampler = StreamSampler(min_interval=1.0)
+sampler = StreamSampler(min_interval=0.25)
 pyrogue.streamTap(pgpVc0,sampler)
 pyrogue.streamConnect(sampler,rawWriter.getChannel(0x1))
 # Sampler for L0 data; 
@@ -221,12 +235,14 @@ pyrogue.streamConnect(L0sampler,L0Writer.getChannel(0x1))
 l1bm = L1BitmaskCompressor(threshold=50, emit_empty=False)
 pyrogue.streamTap(l0, l1bm)
 pyrogue.streamConnect(l1bm, L1Writer.getChannel(0x1))
+
 # S2, Spectrum
 specTap = L2Spectrum(every_n=10)  
 pyrogue.streamTap(l1, specTap)                         
 pyrogue.streamConnect(specTap, S2Writer.getChannel(0x1))
+
 # L2 Para for 122keV, each frame; 
-L2PTap = L2Para()
+L2PTap = L2Para(low_bin= 100,high_bin= 140,scale=scale,group_frames=200)
 pyrogue.streamTap(l1,L2PTap)
 pyrogue.streamConnect(L2PTap, L2PWriter.getChannel(0x1))
 

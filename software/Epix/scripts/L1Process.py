@@ -59,7 +59,7 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
                  filter_path="/data/gain/filter.npy",
 
                  # dynamic gain
-                 dynamic_gain=False,
+                 dynamic_gain=True,
                  dynamic_gain_dir="/data/gain",
                  dynamic_gain_period_s=86400,
 
