@@ -4,19 +4,23 @@ import numpy as np
 import bottleneck as bn
 from epix import epix
 
-# ===== 固定配置 =====
+# Files Directory, we got the files from the raw data;
+# Important that the newest version does not include filter part; 
+# The filter comes from the precalibration and dynamic gain calibration
 RAW_DIR  = "/data/raw"
-RAW_GLOB = "*.dat.*"     # data_YYYYmmdd_HHMMSS.dat.NNN
+RAW_GLOB = "*.dat.*"     
 OUT_DIR  = "/data/dark"
+OUT_DARK_DIR = '/data/dark/dark'
 
-FRAMES   = 10000              # 最大帧数（不足则自动用全部）
+
+FRAMES   = 10000              # Maximum Frames that we are using; 
 START    = 0
-STD_THR  = 50.0
+STD_THR  = 50.0 # The standard error threshold is still 50
 
-SCAN_S   = 60                 # 扫描频率（秒，可高）
-PICK_SECOND_NEWEST_RAW = True # 用第二新防半文件
-# ====================
+SCAN_S   = 60                 # How Often we check this 
+PICK_SECOND_NEWEST_RAW = True # Use the second newest raw data; 
 
+# Find the raw data we want; 
 def pick_raw():
     files = glob.glob(os.path.join(RAW_DIR, RAW_GLOB))
     if not files:
@@ -26,50 +30,46 @@ def pick_raw():
         return files[1]
     return files[0]
 
+# the dot is a bad symbol, so replace it. 
 def raw_tag(raw_path: str) -> str:
     # data_20251126_133252.dat.247 -> data_20251126_133252_dat_247
     return os.path.basename(raw_path).replace(".", "_")
 
+# The calculation; 
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
+    os.makedirs(OUT_DARK_DIR, exist_ok=True)
 
     while True:
         try:
+            # Find the raw data that we are going to use; 
             raw = pick_raw()
             if raw is None:
                 time.sleep(SCAN_S)
                 continue
-
             tag = raw_tag(raw)
-            print(raw)
-            dark_ver   = os.path.join(OUT_DIR, f"dark_2D_{tag}.npy")
-            filter_ver = os.path.join(OUT_DIR, f"filter_{tag}.npy")
+            
+            # We shall update the tagged dark 
+            dark_ver   = os.path.join(OUT_DARK_DIR, f"dark_2D_{tag}.npy")
+            dark_cur   = os.path.join(OUT_DIR, "dark_2D.npy")
 
-            # ★ 关键：已经算过就直接跳过
+            # If it exists, skip it. 
             if os.path.exists(dark_ver):
                 time.sleep(SCAN_S)
                 continue
 
             det = epix(raw)
-            data = det.data[START : START + FRAMES]  # 不足FRAMES自动截断
+            data = det.data[START : START + FRAMES]  
             nframes = data.shape[0]
             if nframes == 0:
                 raise RuntimeError("no frames available")
 
-            dark_cur   = os.path.join(OUT_DIR, "dark_2D.npy")
-            filter_cur = os.path.join(OUT_DIR, "filter.npy")
-
+            # The background mainly focus on the median value of the background; 
             median_2d = bn.nanmedian(data, axis=0)
-            std_map   = bn.nanstd(data, axis=0)
-            filt      = (std_map < STD_THR)
 
-            # 保存版本化
+            # Save the newest version and archive the data; 
             np.save(dark_ver, median_2d)
-            np.save(filter_ver, filt)
-
-            # 更新当前最新
             np.save(dark_cur, median_2d)
-            np.save(filter_cur, filt)
 
             print(f"[dark-builder] raw    : {raw}")
             print(f"[dark-builder] frames : {nframes}")
