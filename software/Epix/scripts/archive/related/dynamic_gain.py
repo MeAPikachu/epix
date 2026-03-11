@@ -173,7 +173,7 @@ def pick_2nd_to_5th_newest_L1dat(base_dir="/data/L1", pattern="L1*.dat", n=4):
 def main():
     base_dir = "/data/L1"
     out_dir = "/data/gain"
-    out_filter_dir = '/data/gain/filter'
+    out_filter_dir = '/data/gain'
     os.makedirs(out_dir, exist_ok=True)
     os.makedirs(out_filter_dir, exist_ok=True)
 
