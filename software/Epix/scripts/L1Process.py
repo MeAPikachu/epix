@@ -37,12 +37,14 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
     """
     Level-1 processing:
       - optional centroid / charge-sharing sum
+      - filter mask application
       - gain correction
       - clamp and write back to uint16
 
     Supports:
       - multithreaded processing
       - dynamic gain reload from /data/gain/gain.npy
+      - dynamic filter reload from /data/gain/filter.npy
       - ordered output sending
     """
 
@@ -54,6 +56,7 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 
     def __init__(self,
                  gain_path="/data/gain/gain.npy",
+                 filter_path="/data/gain/filter.npy",
 
                  # dynamic gain
                  dynamic_gain=False,
@@ -85,17 +88,21 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
 
         if self.dynamic_gain:
             self.gain_path = os.path.join(dynamic_gain_dir, "gain.npy")
+            self.filter_path = os.path.join(dynamic_gain_dir, "filter.npy")
         else:
             self.gain_path = gain_path
+            self.filter_path = filter_path
 
         self._gain_lock = threading.Lock()
         self._gain_mtime = None
+        self._filter_mtime = None
 
         # gain settings
         self.SCALE = float(scale)
         self._input_gain_scalar = gain_scalar
         self.coeff = None
         self.coeff_scalar = None
+        self.filter_mask = None
 
         # processing settings
         self.clamp_min = int(clamp_min)
@@ -159,12 +166,14 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         if self.gain_path is not None:
             try:
                 gain_mtime = os.path.getmtime(self.gain_path)
+                filter_mtime = os.path.getmtime(self.filter_path) if self.filter_path else None
             except OSError:
                 if initial:
-                    raise RuntimeError(f"Initial gain load failed: {self.gain_path}")
+                    raise RuntimeError(f"Initial gain/filter load failed: {self.gain_path}")
                 return
 
-            if (not initial) and (gain_mtime == self._gain_mtime):
+            # Check if either file has changed
+            if (not initial) and (gain_mtime == self._gain_mtime) and (filter_mtime == self._filter_mtime):
                 return
 
             g = np.load(self.gain_path, mmap_mode="r")
@@ -175,12 +184,20 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
             g = g.reshape(self.NY, self.NX).astype(np.float32, copy=False)
             coeff = (self.SCALE / np.maximum(g, 1e-12)).astype(np.float32, copy=False)
 
+            # Load filter
+            f_mask = None
+            if self.filter_path and os.path.exists(self.filter_path):
+                f = np.load(self.filter_path, mmap_mode="r")
+                f_mask = np.asarray(f).reshape(self.NY, self.NX).astype(np.float32, copy=False)
+
             with self._gain_lock:
                 self.coeff = coeff
                 self.coeff_scalar = None
+                self.filter_mask = f_mask
                 self._gain_mtime = gain_mtime
+                self._filter_mtime = filter_mtime
 
-            print(f"[L1Process] gain loaded: {os.path.basename(self.gain_path)}")
+            print(f"[L1Process] resources loaded: {os.path.basename(self.gain_path)}")
             return
 
         if self._input_gain_scalar is not None:
@@ -194,7 +211,9 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         with self._gain_lock:
             self.coeff = None
             self.coeff_scalar = coeff_scalar
+            self.filter_mask = None
             self._gain_mtime = None
+            self._filter_mtime = None
 
     def _gain_watcher(self):
         while not self._stop.is_set():
@@ -237,6 +256,7 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
         with self._gain_lock:
             coeff = self.coeff
             coeff_scalar = self.coeff_scalar
+            f_mask = self.filter_mask
 
         # centroid on L0 output
         if self.enable_centroid:
@@ -245,6 +265,10 @@ class L1Process(rogue.interfaces.stream.Slave, rogue.interfaces.stream.Master):
             _centroid_sum_u16_to_f32(arr_u2, thr_cs, ws.work_f32)
         else:
             ws.work_f32[:] = arr_u2
+
+        # filter application
+        if f_mask is not None:
+            np.multiply(ws.work_f32, f_mask, out=ws.work_f32)
 
         # gain correction
         if coeff is not None:
