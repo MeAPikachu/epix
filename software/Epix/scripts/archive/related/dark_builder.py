@@ -65,6 +65,7 @@ def main():
                 raise RuntimeError("no frames available")
 
             # The background mainly focus on the median value of the background; 
+            # The median does not really matter, not the mean value/ 
             median_2d = bn.nanmedian(data, axis=0)
 
             # Save the newest version and archive the data; 
