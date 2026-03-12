@@ -183,8 +183,7 @@ l0 = L0Process(dark_path="/data/dark/dark_2D.npy",
                dynamic_calib_period_s=3600,
                
                # Common mode noise correction;
-               n1=8,
-               enable_common_mode=True)
+               n1=8)
 l1 = L1Process(gain_path="/data/epix/software/Mossbauer/gain.npy",
                # Dynamic Gain
                dynamic_gain=True,
