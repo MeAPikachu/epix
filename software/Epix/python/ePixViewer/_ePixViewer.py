@@ -167,8 +167,8 @@ class Window(QMainWindow, QObject):
 
     def prepairWindow(self):
         # Center UI
-        self.imageScaleMax = int(10000)
-        self.imageScaleMin = int(-10000)
+        self.imageScaleMax = int(400)
+        self.imageScaleMin = int(0)
         screen = QDesktopWidget().screenGeometry(self)
         size = self.geometry()
         self.buildUi()
