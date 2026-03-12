@@ -24,7 +24,7 @@ class L2Spectrum(rogue.interfaces.stream.Slave,
     NB_HI     = (MAX_VAL - SPLIT) // HIGH_STEP    # (51200-5120)/256 = 180
     NBINS     = NB_LO + NB_HI                     # 1460
 
-    def __init__(self, every_n: int = 300):
+    def __init__(self, every_n: int = 100):
         rogue.interfaces.stream.Slave.__init__(self)
         rogue.interfaces.stream.Master.__init__(self)
         self._counts = np.zeros(self.NBINS, dtype=np.uint32)

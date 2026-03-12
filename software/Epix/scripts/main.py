@@ -53,6 +53,7 @@ from L1BitmaskCompressor import L1BitmaskCompressor
 from L2Para import L2Para
 from StreamSampler import StreamSampler
 from L3Process import L3Process
+from L00Timestamp import TimestampProcess
 
 from Board_utils import EpixBoard,MyRunControl,MbDebug
 import Board_utils 
@@ -104,7 +105,7 @@ parser.add_argument(
     "--yml", 
     type     = str,
     required = False,
-    default  = '../yml/epix10ka_mossbauer_500Hz.yml',
+    default  = '../yml/epix10ka_mossbauer_auto.yml',
     help     = "Default yml is the mossbauer 500Hz",
 )  
 parser.add_argument(
@@ -206,8 +207,13 @@ l2 = L2Process(low_bin= 12.5,
 
 l3 = L3Process(compression_ratio=200)
 
-# Main Data Stream
-pyrogue.streamConnect(pgpVc0, l0)
+
+# A small layer just to add the timestamp;
+ts0 = TimestampProcess()
+
+# Main Datastream
+pyrogue.streamConnect(pgpVc0, ts0)
+pyrogue.streamConnect(ts0, l0)
 pyrogue.streamConnect(l0,l1)
 pyrogue.streamConnect(l1,l2)
 pyrogue.streamConnect(l2,l3)
@@ -224,7 +230,7 @@ L2PWriter = pyrogue.utilities.fileio.StreamWriter(name='L2PWriter',hidden=True)
 # Additional Channels for data writing; 
 # Sampler for raw data; 
 sampler = StreamSampler(min_interval=0.25)
-pyrogue.streamTap(pgpVc0,sampler)
+pyrogue.streamTap(ts0,sampler)
 pyrogue.streamConnect(sampler,rawWriter.getChannel(0x1))
 # Sampler for L0 data; 
 L0sampler = StreamSampler(min_interval=1.0)
@@ -236,7 +242,7 @@ pyrogue.streamTap(l0, l1bm)
 pyrogue.streamConnect(l1bm, L1Writer.getChannel(0x1))
 
 # S2, Spectrum
-specTap = L2Spectrum(every_n=10)  
+specTap = L2Spectrum(every_n=100)  
 pyrogue.streamTap(l1, specTap)                         
 pyrogue.streamConnect(specTap, S2Writer.getChannel(0x1))
 
@@ -293,33 +299,55 @@ time.sleep(0.2)
 ePixBoard.LoadConfig(args.yml)
 time.sleep(0.2)
 
+interval=3600 
+# Each Hour, We have a datafile; 
+
+
+
 #Data Path;
+# Each frame is 16936=44*48*4*2+40 Bytes, Compression Ratio 200 (121MB)
 ePixBoard.dataWriter.DataFile.set(data_path)
-ePixBoard.dataWriter._writer.setMaxSize(1*1024 * 1024**2)
+ePixBoard.dataWriter._writer.setMaxSize(16936*interval*2)
 ePixBoard.dataWriter.Open.set(True) 
 
 # Enable the parallel raw record 
 #ePixBoard.rawWriter.DataFile.set(raw_path)
 #ePixBoard.rawWriter._writer.setMaxSize(500 * 1024**2)
 #ePixBoard.rawWriter.Open.set(True) 
-rawWriter._writer.setMaxSize(500 * 1024**2)
+
+# The Raw frame is 274996 Bytes  178*192*2*4 + 40 + 1538 Bytes; 
+# The raw data is taken at 4Hz;
+rawWriter._writer.setMaxSize(274996*interval*4)
 rawWriter._writer.open(raw_path)
+
+
+# The Processed frame is 270376 Bytes  176*192*2*4 + 40 Bytes; 
 # Enable the Processed L0 record 
 #ePixBoard.L0Writer.DataFile.set(L0_path)
 #ePixBoard.L0Writer._writer.setMaxSize(500 * 1024**2)
 #ePixBoard.L0Writer.Open.set(True) 
-L0Writer._writer.setMaxSize(500 * 1024**2)
+L0Writer._writer.setMaxSize(270376*interval*1)
 L0Writer._writer.open(L0_path)
-# S2 Writer, The Spectrum of 
+
+
+# S2 Writer, The Spectrum of whole frame
+# Each frame is 1460*4+40= 5880 , running at 4Hz 
 ePixBoard.S2Writer.DataFile.set(S2_path)
-ePixBoard.S2Writer._writer.setMaxSize(500 * 1024**2)
+ePixBoard.S2Writer._writer.setMaxSize(5880*interval*4)
 ePixBoard.S2Writer.Open.set(True) 
 S2Writer._writer.open(S2_path)
+
+
 # L2P Writer 
-L2PWriter._writer.setMaxSize(500*1024**2)
+# Running at 2Hz
+L2PWriter._writer.setMaxSize(4264*interval*2)
 L2PWriter._writer.open(L2P_path)
 
+
 # Enable the Bitmask L1 compressor
+# This length is not so controllable;
+# The current rate is about 10 minute per file , 5GB (8MB/s), 
+# This part is the biggest, which requires the elm to do the backup; 
 ePixBoard.L1Writer.DataFile.set(L1_path)
 ePixBoard.L1Writer._writer.setMaxSize(5*1024 * 1024**2)
 ePixBoard.L1Writer.Open.set(True) 

@@ -24,7 +24,7 @@ class L2Para(rogue.interfaces.stream.Slave,
 				 low_bin: int = 100,
 				 high_bin: int = 140,
 				 scale: int = 256,
-				 group_frames: int = 100):
+				 group_frames: int = 200):
 		rogue.interfaces.stream.Slave.__init__(self)
 		rogue.interfaces.stream.Master.__init__(self)
 
