@@ -19,11 +19,11 @@ class L2Process(rogue.interfaces.stream.Slave,
     BX      = NX // 4             # 192
     OUT_PIX  = BY * BX            # 8,448
 
-    def __init__(self, low_bin: int = 12, high_bin: int = 16, scale: int = 256):
+    def __init__(self, low_bin: float = 12, high_bin: float = 16, scale: int = 256):
         rogue.interfaces.stream.Slave.__init__(self)
         rogue.interfaces.stream.Master.__init__(self)
-        self.low_bin  = int(low_bin)
-        self.high_bin = int(high_bin)
+        self.low_bin  = float(low_bin)
+        self.high_bin = float(high_bin)
         self.scale    = int(scale)
 
     def _acceptFrame(self, frame):
@@ -41,8 +41,8 @@ class L2Process(rogue.interfaces.stream.Slave,
                             count=self.NPIX, offset=self.HEAD_IN
                            ).reshape(self.NY, self.NX)
 
-        lo = self.low_bin  * self.scale
-        hi = self.high_bin * self.scale
+        lo = int(self.low_bin  * self.scale)
+        hi = int(self.high_bin * self.scale)
         if hi <= lo:
             hi = lo  
 

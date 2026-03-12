@@ -404,7 +404,7 @@ def stop(exit_code: int = 0):
         _cleanup_done = True
 
     # 1) Stop software processing threads (L0/L1BM etc.)
-    for name in ("l1bm", "l0", "l1", "l2", "l3"):
+    for name in ("l1bm", "l0", "l1", "l2", "l3",'ts0'):
         obj = globals().get(name, None)
         if obj is None:
             continue
