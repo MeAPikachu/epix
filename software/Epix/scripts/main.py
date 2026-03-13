@@ -339,8 +339,8 @@ S2Writer._writer.open(S2_path)
 
 
 # L2P Writer 
-# Running at 2Hz
-L2PWriter._writer.setMaxSize(4264*interval*2)
+# Running at 4Hz
+L2PWriter._writer.setMaxSize(4264*interval*4)
 L2PWriter._writer.open(L2P_path)
 
 
