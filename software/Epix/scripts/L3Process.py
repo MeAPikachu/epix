@@ -86,7 +86,7 @@ class L3Process(rogue.interfaces.stream.Slave,
         struct.pack_into('<I', out_buf, 12, int(self._frames_acc[st]))
 
         # word 6: run count from the last frame
-        struct.pack_into('<I', out_buf, 24, struct.unpack_from('<I', orig32, 24)[0])
+        struct.pack_into('<I', out_buf, 24, struct.unpack_from('<I', orig32, 8)[0])
 
         # keep word 5 / word 7 timestamps from L0 header chain unchanged
 
