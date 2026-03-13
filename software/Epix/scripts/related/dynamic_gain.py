@@ -178,7 +178,7 @@ def main():
     os.makedirs(out_filter_dir, exist_ok=True)
 
     # 1) pick files (2nd~5th newest by mtime) among L1*.dat
-    paths = pick_2nd_to_5th_newest_L1dat(base_dir=base_dir, pattern="L1*.dat", n=4)
+    paths = pick_2nd_to_5th_newest_L1dat(base_dir=base_dir, pattern="L1*.dat*", n=4)
 
     print("Picked files (2nd~5th newest by mtime):")
     for p in paths:
