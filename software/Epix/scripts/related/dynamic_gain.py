@@ -195,13 +195,13 @@ def main():
     # 4) save outputs
     ts = int(time.time())
     out_npy = os.path.join(out_dir, "gain.npy")
-    out2_npy = os.path.join(out_dir, "/gain/gain_{}.npy".format(ts)) 
+    out2_npy = os.path.join(out_dir, "gain/gain_{}.npy".format(ts)) 
     np.save(out_npy, gain.astype(np.float32))
     np.save(out2_npy, gain.astype(np.float32))    
     
     
     fout_npy = os.path.join(out_filter_dir, "filter.npy")
-    fout2_npy = os.path.join(out_filter_dir, "/filter/filter_{}.npy".format(ts)) 
+    fout2_npy = os.path.join(out_filter_dir, "filter/filter_{}.npy".format(ts)) 
     np.save(fout_npy, goodfilter.astype(bool))
     np.save(fout2_npy, goodfilter.astype(bool))
 
