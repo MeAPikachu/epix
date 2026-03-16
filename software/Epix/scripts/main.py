@@ -183,6 +183,7 @@ l0 = L0Process(dark_path="/data/dark/dark_2D.npy",
                dynamic_filter_dir="/data/dark",
                dynamic_calib_period_s=3600,
                
+               drop_if_busy=True,
                # Common mode noise correction;
                n1=8)
 l1 = L1Process(gain_path="/data/epix/software/Mossbauer/gain.npy",
@@ -196,6 +197,7 @@ l1 = L1Process(gain_path="/data/epix/software/Mossbauer/gain.npy",
                n2=15,
                numba_threads=None,
                
+               drop_if_busy=True
                # Gain Scale
                scale=scale
                )

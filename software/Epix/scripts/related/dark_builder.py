@@ -4,23 +4,17 @@ import numpy as np
 import bottleneck as bn
 from epix import epix
 
-# Files Directory, we got the files from the raw data;
-# Important that the newest version does not include filter part; 
-# The filter comes from the precalibration and dynamic gain calibration
 RAW_DIR  = "/data/raw"
-RAW_GLOB = "*.dat.*"     
+RAW_GLOB = "*.dat.*"
 OUT_DIR  = "/data/dark"
 OUT_DARK_DIR = '/data/dark/dark'
 
-
-FRAMES   = 10000              # Maximum Frames that we are using; 
+FRAMES   = 10000
 START    = 0
-STD_THR  = 50.0 # The standard error threshold is still 50
+STD_THR  = 50.0
 
-SCAN_S   = 60                 # How Often we check this 
-PICK_SECOND_NEWEST_RAW = True # Use the second newest raw data; 
+PICK_SECOND_NEWEST_RAW = True
 
-# Find the raw data we want; 
 def pick_raw():
     files = glob.glob(os.path.join(RAW_DIR, RAW_GLOB))
     if not files:
@@ -30,45 +24,42 @@ def pick_raw():
         return files[1]
     return files[0]
 
-# the dot is a bad symbol, so replace it. 
 def raw_tag(raw_path: str) -> str:
-    # data_20251126_133252.dat.247 -> data_20251126_133252_dat_247
     return os.path.basename(raw_path).replace(".", "_")
 
-# The calculation; 
+def sleep_until_next_hour():
+    now = time.time()
+    next_hour = ((int(now) // 3600) + 1) * 3600
+    sleep_s = max(1, next_hour - now)
+    print(f"[dark-builder] sleep until next hour: {sleep_s:.1f} s")
+    time.sleep(sleep_s)
+
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     os.makedirs(OUT_DARK_DIR, exist_ok=True)
 
     while True:
         try:
-            # Find the raw data that we are going to use; 
             raw = pick_raw()
             if raw is None:
-                time.sleep(SCAN_S)
+                print("[dark-builder] no raw file found")
+                sleep_until_next_hour()
                 continue
-            tag = raw_tag(raw)
-            
-            # We shall update the tagged dark 
-            dark_ver   = os.path.join(OUT_DARK_DIR, f"dark_2D_{tag}.npy")
-            dark_cur   = os.path.join(OUT_DIR, "dark_2D.npy")
 
-            # If it exists, skip it. 
-            if os.path.exists(dark_ver):
-                time.sleep(SCAN_S)
-                continue
+            tag = raw_tag(raw)
+            time_tag = int(time.time())
+
+            dark_ver = os.path.join(OUT_DARK_DIR, f"dark_2D_{time_tag}.npy")
+            dark_cur = os.path.join(OUT_DIR, "dark_2D.npy")
 
             det = epix(raw)
-            data = det.data[START : START + FRAMES]  
+            data = det.data[START : START + FRAMES]
             nframes = data.shape[0]
             if nframes == 0:
                 raise RuntimeError("no frames available")
 
-            # The background mainly focus on the median value of the background; 
-            # The median does not really matter, not the mean value/ 
             median_2d = bn.nanmedian(data, axis=0)
 
-            # Save the newest version and archive the data; 
             np.save(dark_ver, median_2d)
             np.save(dark_cur, median_2d)
 
@@ -80,7 +71,7 @@ def main():
         except Exception as e:
             print(f"[dark-builder] ERROR: {e}")
 
-        time.sleep(SCAN_S)
+        sleep_until_next_hour()
 
 if __name__ == "__main__":
     main()
