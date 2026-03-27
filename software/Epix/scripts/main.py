@@ -197,7 +197,7 @@ l1 = L1Process(gain_path="/data/epix/software/Mossbauer/gain.npy",
                n2=15,
                numba_threads=None,
                
-               drop_if_busy=True
+               drop_if_busy=True,
                # Gain Scale
                scale=scale
                )
