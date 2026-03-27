@@ -310,7 +310,8 @@ interval=3600
 # Each frame is 16936=44*48*4*2+40 Bytes, Compression Ratio 200 (121MB)
 ePixBoard.dataWriter.DataFile.set(data_path)
 ePixBoard.dataWriter._writer.setMaxSize(16936*interval*2)
-ePixBoard.dataWriter.Open.set(True) 
+ePixBoard.dataWriter.Open.set(True)
+dataWriter._writer.open(data_path) 
 
 # Enable the parallel raw record 
 #ePixBoard.rawWriter.DataFile.set(raw_path)
